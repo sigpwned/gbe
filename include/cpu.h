@@ -5,21 +5,21 @@
 extern "C" {
 #endif
 
-struct cpu {
-  unsigned char a;
-  unsigned char f;
-  unsigned char b;
-  unsigned char c;
-  unsigned char d;
-  unsigned char e;
-  unsigned char h;
-  unsigned char l;
+struct registers {
+  unsigned char  r8[8];
   unsigned short sp;
   unsigned short pc;
 };
 
+struct cpu {
+  struct registers regs;
+  unsigned char* memory;
+};
+
 // LIFECYLE ////////////////////////////////////////////////////////////////////
-void cpu_init(struct cpu* p);
+void cpu_init(struct cpu* p, unsigned char* memory);
+
+void cpu_tick(struct cpu* p);
 
 // 8-BIT REGISTERS /////////////////////////////////////////////////////////////
 unsigned char cpu_get_a(struct cpu* p);

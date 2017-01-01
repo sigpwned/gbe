@@ -7,8 +7,10 @@ BOOST_AUTO_TEST_SUITE(cputest)
 
 BOOST_AUTO_TEST_CASE(reg_af_test)
 {
+  unsigned char* memory=(unsigned char *) malloc(64*1024);
+
   struct cpu cpu;
-  cpu_init(&cpu);
+  cpu_init(&cpu, memory);
 
   BOOST_CHECK(cpu_get_a(&cpu) == 0);
   BOOST_CHECK(cpu_get_f(&cpu) == 0);
