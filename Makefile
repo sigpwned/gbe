@@ -1,6 +1,6 @@
 CC=gcc
 CXX=g++
-CFLAGS=-Iinclude/
+CFLAGS=-Iinclude/ -Wall
 LDFLAGS=
 HEADERS=include/*.h 
 OBJECTS=cpu.o
