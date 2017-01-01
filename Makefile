@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-c -Wall -Iinclude/
 LDFLAGS=
 HEADERS=include/*.h 
-OBJECTS=main.o opcodes.o
+OBJECTS=main.o opcodes.o cpu.o
 LIBRARIES=
 TARGET=gbe
 
