@@ -1,6 +1,8 @@
+#include <stdlib.h>
 #include <string.h>
 #include "cpu.h"
 #include "opcodes.h"
+#include "gbe.h"
 
 #define ZF ((unsigned char)(0x80))
 #define NF ((unsigned char)(0x40))
@@ -39,23 +41,24 @@ void cpu_set_m16(struct cpu* cpu, int mi, unsigned short v);
 
 void cpu_adc_r8(struct cpu* cpu, int rb);
 void cpu_adc_d8(struct cpu* cpu, unsigned char d8);
-void cpu_adc_ind8(struct cpu* cpu, unsigned short p);
+void cpu_adc_ind8(struct cpu* cpu);
 
 void cpu_add8_r8(struct cpu* cpu, int rb);
 void cpu_add8_d8(struct cpu* cpu, unsigned char d8);
-void cpu_add8_ind8(struct cpu* cpu, unsigned short p);
-
+void cpu_add8_ind8(struct cpu* cpu);
 void cpu_add16_r16(struct cpu* cpu, int rb);
 void cpu_add16_d16(struct cpu* cpu, unsigned short d16);
 void cpu_add16_sp(struct cpu* cpu, signed char d8);
 
 void cpu_and_r8(struct cpu* cpu, int rb);
 void cpu_and_d8(struct cpu* cpu, unsigned char d8);
-void cpu_and_ind8(struct cpu* cpu, unsigned short p);
+void cpu_and_ind8(struct cpu* cpu);
+
+void cpu_call_cond(struct cpu* cpu, unsigned short p, unsigned char mask, unsigned char test);
 
 void cpu_cp_r8(struct cpu* cpu, int rb);
 void cpu_cp_d8(struct cpu* cpu, unsigned char d8);
-void cpu_cp_ind8(struct cpu* cpu, unsigned short p);
+void cpu_cp_ind8(struct cpu* cpu);
 
 void cpu_dec8_r8(struct cpu* cpu, int rb);
 void cpu_dec8_ind8(struct cpu* cpu);
@@ -66,6 +69,38 @@ void cpu_inc8_r8(struct cpu* cpu, int rb);
 void cpu_inc8_ind8(struct cpu* cpu);
 void cpu_inc16_r16(struct cpu* cpu, int rb);
 void cpu_inc16_sp(struct cpu* cpu);
+
+void cpu_ld_r8_r8(struct cpu* cpu, int ra, int rb);
+void cpu_ld_r8_d8(struct cpu* cpu, int ri, unsigned char d8);
+void cpu_ld_r8_ind8(struct cpu* cpu, int ra, int rb);
+void cpu_ld_ind8_r8(struct cpu* cpu, int ra, int rb);
+void cpu_ld_hl_spd8(struct cpu* cpu, signed char d8);
+
+void cpu_or_r8(struct cpu* cpu, int rb);
+void cpu_or_d8(struct cpu* cpu, unsigned char d8);
+void cpu_or_ind8(struct cpu* cpu);
+
+void cpu_push_r16(struct cpu* cpu, int rb);
+void cpu_pop_r16(struct cpu* cpu, int rb);
+
+void cpu_sbc_r8(struct cpu* cpu, int rb);
+void cpu_sbc_d8(struct cpu* cpu, unsigned char d8);
+void cpu_sbc_ind8(struct cpu* cpu);
+
+void cpu_sub_r8(struct cpu* cpu, int rb);
+void cpu_sub_d8(struct cpu* cpu, unsigned char d8);
+void cpu_sub_ind8(struct cpu* cpu);
+
+void cpu_xor_r8(struct cpu* cpu, int rb);
+void cpu_xor_d8(struct cpu* cpu, unsigned char d8);
+void cpu_xor_ind8(struct cpu* cpu);
+
+void cpu_rr_r8(struct cpu* cpu, int ri);
+void cpu_rrc_r8(struct cpu* cpu, int ri);
+void cpu_rl_r8(struct cpu* cpu, int ri);
+void cpu_rlc_r8(struct cpu* cpu, int ri);
+
+void cpu_rst_addr(struct cpu* cpu, unsigned short addr);
 
 // LIFECYCLE ///////////////////////////////////////////////////////////////////
 void cpu_init(struct cpu* cpu, unsigned char* memory) {
@@ -105,12 +140,8 @@ void cpu_tick(struct cpu* cpu) {
       cpu_adc_d8(cpu, d8);
     } break;
   case ADC_A_HL_IND:
-    {
-      unsigned char l=cpu->memory[cpu->regs.pc++];
-      unsigned char h=cpu->memory[cpu->regs.pc++];
-      unsigned short p=UCS_TO_US(h, l);
-      cpu_adc_ind8(cpu, p);
-    } break;
+    cpu_adc_ind8(cpu);
+    break;
 
   // ADD ///////////////////////////////////////////////////////////////////////
   case ADD_A_A:
@@ -141,12 +172,8 @@ void cpu_tick(struct cpu* cpu) {
       cpu_add8_d8(cpu, d8);
     } break;
   case ADD_A_HL_IND:
-    {
-      unsigned char l=cpu->memory[cpu->regs.pc++];
-      unsigned char h=cpu->memory[cpu->regs.pc++];
-      unsigned short p=UCS_TO_US(h, l);
-      cpu_add8_ind8(cpu, p);
-    } break;
+    cpu_add8_ind8(cpu);
+    break;
 
   case ADD_HL_BC:
     cpu_add16_r16(cpu, RBC);
@@ -199,19 +226,47 @@ void cpu_tick(struct cpu* cpu) {
       cpu_and_d8(cpu, d8);
     } break;
   case AND_HL_IND:
+    cpu_and_ind8(cpu);
+    break;
+
+  // CALL //////////////////////////////////////////////////////////////////////
+  case CALL_A16:
     {
       unsigned char l=cpu->memory[cpu->regs.pc++];
       unsigned char h=cpu->memory[cpu->regs.pc++];
       unsigned short p=UCS_TO_US(h, l);
-      cpu_and_ind8(cpu, p);
+      cpu->memory[--cpu->regs.sp] = h;
+      cpu->memory[--cpu->regs.sp] = l;
+      cpu->regs.pc = p;
     } break;
-
-  // CALL //////////////////////////////////////////////////////////////////////
-  case CALL_A16:
   case CALL_C_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu_call_cond(cpu, p, CF, CF);
+    } break;
   case CALL_NC_A16:
-  case CALL_NZ_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu_call_cond(cpu, p, CF, 0);
+    } break;
   case CALL_Z_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu_call_cond(cpu, p, ZF, ZF);
+    } break;
+  case CALL_NZ_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu_call_cond(cpu, p, ZF, 0);
+    } break;
 
   // CF ////////////////////////////////////////////////////////////////////////
   case CCF:
@@ -267,12 +322,8 @@ void cpu_tick(struct cpu* cpu) {
       cpu_cp_d8(cpu, d8);
     } break;
   case CP_A_HL_IND:
-    {
-      unsigned char l=cpu->memory[cpu->regs.pc++];
-      unsigned char h=cpu->memory[cpu->regs.pc++];
-      unsigned short p=UCS_TO_US(h, l);
-      cpu_cp_ind8(cpu, p);
-    } break;
+    cpu_cp_ind8(cpu);
+    break;
 
   case DAA:
     // wat
@@ -318,7 +369,12 @@ void cpu_tick(struct cpu* cpu) {
 
   // INTERRUPTS ////////////////////////////////////////////////////////////////
   case DI:
+    cpu->ime = 0;
+    break;
+
   case EI:
+    cpu->ime = 1;
+    break;
 
   // INC ///////////////////////////////////////////////////////////////////////
   case INC_A:
@@ -361,204 +417,703 @@ void cpu_tick(struct cpu* cpu) {
 
   // JUMP //////////////////////////////////////////////////////////////////////
   case JP_A16:
-  case JP_C_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu->regs.pc = p;
+    } break;
   case JP_HL_IND:
+    {
+      unsigned short p=cpu_get_r16(cpu, RHL);
+      cpu->regs.pc = p;
+    } break;
+  case JP_C_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&CF) != 0)
+        cpu->regs.pc = p;
+    } break;
   case JP_NC_A16:
-  case JP_NZ_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&CF) == 0)
+        cpu->regs.pc = p;
+    } break;
   case JP_Z_A16:
-  case JR_C_R8:
-  case JR_NC_R8:
-  case JR_NZ_R8:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&ZF) != 0)
+        cpu->regs.pc = p;
+    } break;
+  case JP_NZ_A16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&ZF) == 0)
+        cpu->regs.pc = p;
+    } break;
   case JR_R8:
+    {
+      signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+      cpu->regs.pc += d;
+    } break;
+  case JR_C_R8:
+    {
+      signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+      if((cpu_get_r8(cpu, RF)&CF) != 0)
+        cpu->regs.pc += d;
+    } break;
+  case JR_NC_R8:
+    {
+      signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+      if((cpu_get_r8(cpu, RF)&CF) == 0)
+        cpu->regs.pc += d;
+    } break;
   case JR_Z_R8:
+    {
+      signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+      if((cpu_get_r8(cpu, RF)&ZF) != 0)
+        cpu->regs.pc += d;
+    } break;
+  case JR_NZ_R8:
+    {
+      signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+      if((cpu_get_r8(cpu, RF)&ZF) == 0)
+        cpu->regs.pc += d;
+    } break;
+
+  // LOAD //////////////////////////////////////////////////////////////////////
   case LDH_A8_IND_A:
+    {
+      unsigned char a=cpu_get_r8(cpu, RA);
+      unsigned char n=cpu->memory[cpu->regs.pc++];
+      cpu->memory[0xFF00+n] = a;
+    } break;
   case LDH_A_A8_IND:
+    {
+      unsigned char n=cpu->memory[cpu->regs.pc++];
+      unsigned char t=cpu->memory[0xFF00+n];
+      cpu_set_r8(cpu, RA, t);
+    } break;
   case LD_A16_IND_A:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      unsigned char a=cpu_get_r8(cpu, RA);
+      cpu->memory[p] = a;
+    } break;
   case LD_A_A16_IND:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short p=UCS_TO_US(h, l);
+      unsigned char t=cpu->memory[p];
+      cpu_set_r8(cpu, RA, t);
+    } break;
 
   case LD_A_A:
+    cpu_ld_r8_r8(cpu, RA, RA);
+    break;
   case LD_A_B:
+    cpu_ld_r8_r8(cpu, RA, RB);
+    break;
   case LD_A_C:
+    cpu_ld_r8_r8(cpu, RA, RC);
+    break;
   case LD_A_D:
+    cpu_ld_r8_r8(cpu, RA, RD);
+    break;
   case LD_A_E:
+    cpu_ld_r8_r8(cpu, RA, RE);
+    break;
   case LD_A_H:
+    cpu_ld_r8_r8(cpu, RA, RH);
+    break;
   case LD_A_L:
+    cpu_ld_r8_r8(cpu, RA, RL);
+    break;
   case LD_A_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RA, d8);
+    } break;
   case LD_A_HL_IND:
+    cpu_ld_r8_ind8(cpu, RA, RHL);
+    break;
 
   case LD_A_BC_IND:
+    cpu_ld_r8_ind8(cpu, RA, RBC);
+    break;
   case LD_A_DE_IND:
+    cpu_ld_r8_ind8(cpu, RA, RDE);
+    break;
   case LD_A_HL_IND_MINUS:
+    {
+      unsigned short hl=cpu_get_r16(cpu, RHL);
+      unsigned char a=cpu->memory[hl];
+      cpu_set_r8(cpu, RA, a);
+      cpu_set_r16(cpu, RHL, hl-1);
+    } break;
   case LD_A_HL_IND_PLUS:
+    {
+      unsigned short hl=cpu_get_r16(cpu, RHL);
+      unsigned char a=cpu->memory[hl];
+      cpu_set_r8(cpu, RA, a);
+      cpu_set_r16(cpu, RHL, hl+1);
+    } break;
 
   case LD_B_A:
+    cpu_ld_r8_r8(cpu, RB, RA);
+    break;
   case LD_B_B:
+    cpu_ld_r8_r8(cpu, RB, RB);
+    break;
   case LD_B_C:
+    cpu_ld_r8_r8(cpu, RB, RC);
+    break;
   case LD_B_D:
+    cpu_ld_r8_r8(cpu, RB, RD);
+    break;
   case LD_B_E:
+    cpu_ld_r8_r8(cpu, RB, RE);
+    break;
   case LD_B_H:
+    cpu_ld_r8_r8(cpu, RB, RH);
+    break;
   case LD_B_L:
+    cpu_ld_r8_r8(cpu, RB, RL);
+    break;
   case LD_B_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RB, d8);
+    } break;
   case LD_B_HL_IND:
+    cpu_ld_r8_ind8(cpu, RB, RHL);
+    break;
 
   case LD_C_A:
+    cpu_ld_r8_r8(cpu, RC, RA);
+    break;
   case LD_C_B:
+    cpu_ld_r8_r8(cpu, RC, RB);
+    break;
   case LD_C_C:
+    cpu_ld_r8_r8(cpu, RC, RC);
+    break;
   case LD_C_D:
+    cpu_ld_r8_r8(cpu, RC, RD);
+    break;
   case LD_C_E:
+    cpu_ld_r8_r8(cpu, RC, RE);
+    break;
   case LD_C_H:
+    cpu_ld_r8_r8(cpu, RC, RH);
+    break;
   case LD_C_L:
+    cpu_ld_r8_r8(cpu, RC, RL);
+    break;
   case LD_C_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RC, d8);
+    } break;
   case LD_C_HL_IND:
+    cpu_ld_r8_ind8(cpu, RC, RHL);
+    break;
 
   case LD_D_A:
+    cpu_ld_r8_r8(cpu, RD, RA);
+    break;
   case LD_D_B:
+    cpu_ld_r8_r8(cpu, RD, RB);
+    break;
   case LD_D_C:
+    cpu_ld_r8_r8(cpu, RD, RC);
+    break;
   case LD_D_D:
+    cpu_ld_r8_r8(cpu, RD, RD);
+    break;
   case LD_D_E:
+    cpu_ld_r8_r8(cpu, RD, RE);
+    break;
   case LD_D_H:
+    cpu_ld_r8_r8(cpu, RD, RH);
+    break;
   case LD_D_L:
+    cpu_ld_r8_r8(cpu, RD, RL);
+    break;
   case LD_D_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RD, d8);
+    } break;
   case LD_D_HL_IND:
+    cpu_ld_r8_ind8(cpu, RD, RHL);
+    break;
 
   case LD_E_A:
+    cpu_ld_r8_r8(cpu, RE, RA);
+    break;
   case LD_E_B:
+    cpu_ld_r8_r8(cpu, RE, RB);
+    break;
   case LD_E_C:
+    cpu_ld_r8_r8(cpu, RE, RC);
+    break;
   case LD_E_D:
+    cpu_ld_r8_r8(cpu, RE, RD);
+    break;
   case LD_E_E:
+    cpu_ld_r8_r8(cpu, RE, RE);
+    break;
   case LD_E_H:
+    cpu_ld_r8_r8(cpu, RE, RH);
+    break;
   case LD_E_L:
+    cpu_ld_r8_r8(cpu, RE, RL);
+    break;
   case LD_E_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RE, d8);
+    } break;
   case LD_E_HL_IND:
+    cpu_ld_r8_ind8(cpu, RE, RHL);
+    break;
 
   case LD_H_A:
+    cpu_ld_r8_r8(cpu, RH, RA);
+    break;
   case LD_H_B:
+    cpu_ld_r8_r8(cpu, RH, RB);
+    break;
   case LD_H_C:
+    cpu_ld_r8_r8(cpu, RH, RC);
+    break;
   case LD_H_D:
+    cpu_ld_r8_r8(cpu, RH, RD);
+    break;
   case LD_H_E:
+    cpu_ld_r8_r8(cpu, RH, RE);
+    break;
   case LD_H_H:
+    cpu_ld_r8_r8(cpu, RH, RH);
+    break;
   case LD_H_L:
+    cpu_ld_r8_r8(cpu, RH, RL);
+    break;
   case LD_H_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RH, d8);
+    } break;
   case LD_H_HL_IND:
+    cpu_ld_r8_ind8(cpu, RH, RHL);
+    break;
 
   case LD_L_A:
+    cpu_ld_r8_r8(cpu, RL, RA);
+    break;
   case LD_L_B:
+    cpu_ld_r8_r8(cpu, RL, RB);
+    break;
   case LD_L_C:
+    cpu_ld_r8_r8(cpu, RL, RC);
+    break;
   case LD_L_D:
+    cpu_ld_r8_r8(cpu, RL, RD);
+    break;
   case LD_L_E:
+    cpu_ld_r8_r8(cpu, RL, RE);
+    break;
   case LD_L_H:
+    cpu_ld_r8_r8(cpu, RL, RH);
+    break;
   case LD_L_L:
+    cpu_ld_r8_r8(cpu, RL, RL);
+    break;
   case LD_L_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_ld_r8_d8(cpu, RL, d8);
+    } break;
   case LD_L_HL_IND:
+    cpu_ld_r8_ind8(cpu, RL, RHL);
+    break;
 
   case LD_C_IND_A:
+    {
+      unsigned char a=cpu_get_r8(cpu, RA);
+      unsigned char c=cpu_get_r8(cpu, RC);
+      cpu->memory[0xFF00+c] = a;
+    } break;
   case LD_A_C_IND:
+    {
+      unsigned char c=cpu_get_r8(cpu, RC);
+      unsigned char t=cpu->memory[0xFF00+c];
+      cpu_set_r8(cpu, RA, t);
+    } break;
 
   case LD_BC_D16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short d16=UCS_TO_US(h, l);
+      cpu_set_r16(cpu, RBC, d16);
+    } break;
   case LD_DE_D16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short d16=UCS_TO_US(h, l);
+      cpu_set_r16(cpu, RDE, d16);
+    } break;
   case LD_HL_D16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short d16=UCS_TO_US(h, l);
+      cpu_set_r16(cpu, RHL, d16);
+    } break;
   case LD_HL_IND_A:
+    cpu_ld_ind8_r8(cpu, RHL, RA);
+    break;
   case LD_HL_IND_B:
+    cpu_ld_ind8_r8(cpu, RHL, RB);
+    break;
   case LD_HL_IND_C:
+    cpu_ld_ind8_r8(cpu, RHL, RC);
+    break;
   case LD_HL_IND_D:
+    cpu_ld_ind8_r8(cpu, RHL, RD);
+    break;
   case LD_HL_IND_E:
+    cpu_ld_ind8_r8(cpu, RHL, RE);
+    break;
   case LD_HL_IND_H:
+    cpu_ld_ind8_r8(cpu, RHL, RH);
+    break;
   case LD_HL_IND_L:
+    cpu_ld_ind8_r8(cpu, RHL, RL);
+    break;
   case LD_HL_IND_D8:
+    {
+      unsigned char a=cpu->memory[cpu->regs.pc++];
+      unsigned short p=cpu_get_r16(cpu, RHL);
+      cpu->memory[p] = a;
+    } break;
   case LD_HL_SP_PLUS_R8:
+    {
+      signed char d8=(signed char) cpu->memory[cpu->regs.pc++];
+      cpu_ld_hl_spd8(cpu, d8);
+    } break;
+
+  case LD_BC_IND_A:
+    cpu_ld_ind8_r8(cpu, RBC, RA);
+    break;
+  case LD_DE_IND_A:
+    cpu_ld_ind8_r8(cpu, RDE, RA);
+    break;
 
   case LD_A16_IND_SP:
-  case LD_BC_IND_A:
-  case LD_DE_IND_A:
   case LD_HL_IND_MINUS_A:
+    {
+      unsigned short hl=cpu_get_r16(cpu, RHL);
+      unsigned char a=cpu_get_r8(cpu, RA);
+      cpu->memory[hl] = a;
+      cpu_set_r16(cpu, RHL, hl-1);
+    } break;
   case LD_HL_IND_PLUS_A:
+    {
+      unsigned short hl=cpu_get_r16(cpu, RHL);
+      unsigned char a=cpu_get_r8(cpu, RA);
+      cpu->memory[hl] = a;
+      cpu_set_r16(cpu, RHL, hl+1);
+    } break;
 
   case LD_SP_D16:
+    {
+      unsigned char l=cpu->memory[cpu->regs.pc++];
+      unsigned char h=cpu->memory[cpu->regs.pc++];
+      unsigned short d16=UCS_TO_US(h, l);
+      cpu->regs.sp = d16;
+    } break;
   case LD_SP_HL:
+    {
+      unsigned short hl=cpu_get_r16(cpu, RHL);
+      cpu->regs.sp = hl;
+    } break;
 
   // NOP ///////////////////////////////////////////////////////////////////////
   case NOP:
     // Well that was easy! :)
     break;
 
+  // OR ////////////////////////////////////////////////////////////////////////
   case OR_A:
+    cpu_or_r8(cpu, RA);
+    break;
   case OR_B:
+    cpu_or_r8(cpu, RB);
+    break;
   case OR_C:
+    cpu_or_r8(cpu, RC);
+    break;
   case OR_D:
+    cpu_or_r8(cpu, RD);
+    break;
   case OR_E:
+    cpu_or_r8(cpu, RE);
+    break;
   case OR_H:
+    cpu_or_r8(cpu, RH);
+    break;
   case OR_L:
+    cpu_or_r8(cpu, RL);
+    break;
   case OR_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_or_d8(cpu, d8);
+    } break;
   case OR_HL_IND:
+    cpu_or_ind8(cpu);
+    break;
 
+  // POP ///////////////////////////////////////////////////////////////////////
   case POP_AF:
+    cpu_pop_r16(cpu, RAF);
+    break;
   case POP_BC:
+    cpu_pop_r16(cpu, RBC);
+    break;
   case POP_DE:
+    cpu_pop_r16(cpu, RDE);
+    break;
   case POP_HL:
+    cpu_pop_r16(cpu, RHL);
+    break;
 
-  case PREFIX_CB:
-
+  // PUSH //////////////////////////////////////////////////////////////////////
   case PUSH_AF:
+    cpu_push_r16(cpu, RAF);
+    break;
   case PUSH_BC:
+    cpu_push_r16(cpu, RBC);
+    break;
   case PUSH_DE:
+    cpu_push_r16(cpu, RDE);
+    break;
   case PUSH_HL:
+    cpu_push_r16(cpu, RHL);
+    break;
 
+  // OTHER INSTRUCTIONS ////////////////////////////////////////////////////////
+  case PREFIX_CB:
+    break;
+
+  // RETURN ////////////////////////////////////////////////////////////////////
   case RET:
-  case RETI:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu->regs.pc = p;
+    } break;
   case RET_C:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&CF) != 0)
+        cpu->regs.pc = p;
+    } break;
   case RET_NC:
-  case RET_NZ:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&CF) == 0)
+        cpu->regs.pc = p;
+    } break;
   case RET_Z:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&ZF) != 0)
+        cpu->regs.pc = p;
+    } break;
+  case RET_NZ:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      if((cpu_get_r8(cpu, RF)&ZF) == 0)
+        cpu->regs.pc = p;
+    } break;
+  case RETI:
+    {
+      unsigned char l=cpu->memory[cpu->regs.sp++];
+      unsigned char h=cpu->memory[cpu->regs.sp++];
+      unsigned short p=UCS_TO_US(h, l);
+      cpu->regs.pc = p;
+      cpu->ime = 1;
+    } break;
 
+    // ROTATIONS
   case RLA:
+    cpu_rl_r8(cpu, RA);
+    break;
   case RLCA:
+    cpu_rlc_r8(cpu, RA);
+    break;
   case RRA:
+    cpu_rr_r8(cpu, RA);
+    break;
   case RRCA:
+    cpu_rrc_r8(cpu, RA);
+    break;
 
+  // RESET /////////////////////////////////////////////////////////////////////
   case RST_00H:
+    cpu_rst_addr(cpu, 0x00);
+    break;
   case RST_08H:
+    cpu_rst_addr(cpu, 0x08);
+    break;
   case RST_10H:
+    cpu_rst_addr(cpu, 0x10);
+    break;
   case RST_18H:
+    cpu_rst_addr(cpu, 0x18);
+    break;
   case RST_20H:
+    cpu_rst_addr(cpu, 0x20);
+    break;
   case RST_28H:
+    cpu_rst_addr(cpu, 0x28);
+    break;
   case RST_30H:
+    cpu_rst_addr(cpu, 0x30);
+    break;
   case RST_38H:
+    cpu_rst_addr(cpu, 0x38);
+    break;
 
+  // SBC ///////////////////////////////////////////////////////////////////////
   case SBC_A_A:
+    cpu_sbc_r8(cpu, RA);
+    break;
   case SBC_A_B:
+    cpu_sbc_r8(cpu, RB);
+    break;
   case SBC_A_C:
+    cpu_sbc_r8(cpu, RC);
+    break;
   case SBC_A_D:
+    cpu_sbc_r8(cpu, RD);
+    break;
   case SBC_A_E:
+    cpu_sbc_r8(cpu, RE);
+    break;
   case SBC_A_H:
+    cpu_sbc_r8(cpu, RH);
+    break;
   case SBC_A_L:
+    cpu_sbc_r8(cpu, RL);
+    break;
   case SBC_A_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_sbc_d8(cpu, d8);
+    } break;
   case SBC_A_HL_IND:
+    cpu_sbc_ind8(cpu);
+    break;
 
   // STOP //////////////////////////////////////////////////////////////////////
   case HALT:
+    cpu->halted = 1;
+    break;
   case STOP:
+    cpu->stopped = 1;
+    break;
 
+  // SUB ///////////////////////////////////////////////////////////////////////
   case SUB_A:
+    cpu_sub_r8(cpu, RA);
+    break;
   case SUB_B:
+    cpu_sub_r8(cpu, RB);
+    break;
   case SUB_C:
+    cpu_sub_r8(cpu, RC);
+    break;
   case SUB_D:
+    cpu_sub_r8(cpu, RD);
+    break;
   case SUB_E:
+    cpu_sub_r8(cpu, RE);
+    break;
   case SUB_H:
+    cpu_sub_r8(cpu, RH);
+    break;
   case SUB_L:
+    cpu_sub_r8(cpu, RL);
+    break;
   case SUB_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_sub_d8(cpu, d8);
+    } break;
   case SUB_HL_IND:
+    cpu_sub_ind8(cpu);
+    break;
 
+  // XOR ///////////////////////////////////////////////////////////////////////
   case XOR_A_A:
+    cpu_xor_r8(cpu, RA);
+    break;
   case XOR_A_B:
+    cpu_xor_r8(cpu, RB);
+    break;
   case XOR_A_C:
+    cpu_xor_r8(cpu, RC);
+    break;
   case XOR_A_D:
+    cpu_xor_r8(cpu, RD);
+    break;
   case XOR_A_E:
+    cpu_xor_r8(cpu, RE);
+    break;
   case XOR_A_H:
+    cpu_xor_r8(cpu, RH);
+    break;
   case XOR_A_L:
-  case XOR_A_HL_IND:
+    cpu_xor_r8(cpu, RL);
+    break;
   case XOR_D8:
+    {
+      unsigned char d8=cpu->memory[cpu->regs.pc++];
+      cpu_xor_d8(cpu, d8);
+    } break;
+  case XOR_A_HL_IND:
+    cpu_xor_ind8(cpu);
+    break;
 
   default:
+    exit(ERR_BAD_OPCODE);
     break;
   }
 }
@@ -773,7 +1328,8 @@ void cpu_adc_d8(struct cpu* cpu, unsigned char d8) {
   cpu_adc_flags(cpu, a, b, t);
 }
 
-void cpu_adc_ind8(struct cpu* cpu, unsigned short p) {
+void cpu_adc_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=cpu->memory[p];
   unsigned int t=a+b;
@@ -809,7 +1365,8 @@ void cpu_add8_d8(struct cpu* cpu, unsigned char d8) {
   cpu_add8_flags(cpu, a, b, t);
 }
 
-void cpu_add8_ind8(struct cpu* cpu, unsigned short p) {
+void cpu_add8_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=cpu->memory[p];
   unsigned int t=a+b;
@@ -847,7 +1404,7 @@ void cpu_add16_sp(struct cpu* cpu, signed char d8) {
 
   unsigned short a=cpu->regs.sp;
   signed char b=d8;
-  int t=a+b;
+  signed int t=a+b;
   
   unsigned int carries=(t & 0x1FFFF) ^ a ^ b;
   unsigned char z=0;
@@ -858,7 +1415,7 @@ void cpu_add16_sp(struct cpu* cpu, signed char d8) {
 }
 
 //// AND ///////////////////////////////////////////////////////////////////////
-void cpu_and_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned int t) {
+void cpu_and_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned char t) {
   unsigned char z=t ? 0 : ZF;
   unsigned char n=0;
   unsigned char h=HF;
@@ -869,25 +1426,36 @@ void cpu_and_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned i
 void cpu_and_r8(struct cpu* cpu, int rb) {
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=cpu_get_r8(cpu, rb);
-  unsigned int t=a & b;
-  cpu_set_r8(cpu, RA, (unsigned char) t);
+  unsigned char t=a & b;
+  cpu_set_r8(cpu, RA, t);
   cpu_and_flags(cpu, a, b, t);
 }
 
 void cpu_and_d8(struct cpu* cpu, unsigned char d8) {
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=d8;
-  unsigned int t=a & b;
-  cpu_set_r8(cpu, RA, (unsigned char) t);
+  unsigned char t=a & b;
+  cpu_set_r8(cpu, RA, t);
   cpu_and_flags(cpu, a, b, t);
 }
 
-void cpu_and_ind8(struct cpu* cpu, unsigned short p) {
+void cpu_and_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=cpu->memory[p];
-  unsigned int t=a & b;
-  cpu_set_r8(cpu, RA, (unsigned char) t);
+  unsigned char t=a & b;
+  cpu_set_r8(cpu, RA, t);
   cpu_and_flags(cpu, a, b, t);
+}
+
+//// CALL //////////////////////////////////////////////////////////////////////
+void cpu_call_cond(struct cpu* cpu, unsigned short p, unsigned char mask, unsigned char test) {
+  unsigned char f=cpu_get_r8(cpu, RF);
+  if((f & mask) == test) {
+    cpu->memory[--cpu->regs.sp] = US_TO_HUC(cpu->regs.pc);
+    cpu->memory[--cpu->regs.sp] = US_TO_LUC(cpu->regs.pc);
+    cpu->regs.pc = p;
+  }
 }
 
 //// CP ////////////////////////////////////////////////////////////////////////
@@ -911,7 +1479,8 @@ void cpu_cp_d8(struct cpu* cpu, unsigned char d8) {
   cpu_cp_flags(cpu, a, b);
 }
 
-void cpu_cp_ind8(struct cpu* cpu, unsigned short p) {
+void cpu_cp_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
   unsigned char b=cpu->memory[p];
   cpu_cp_flags(cpu, a, b);
@@ -980,10 +1549,10 @@ void cpu_inc8_r8(struct cpu* cpu, int rb) {
 }
 
 void cpu_inc8_ind8(struct cpu* cpu) {
-  unsigned short hl=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[hl];
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
   unsigned int t=a+1;
-  cpu->memory[hl] = (unsigned char) t;
+  cpu->memory[p] = (unsigned char) t;
   cpu_inc8_flags(cpu, a, t);
 }
 
@@ -1004,3 +1573,291 @@ void cpu_inc16_sp(struct cpu* cpu) {
   cpu->regs.sp = (unsigned short) t;
   cpu_inc16_flags(cpu, a, t);
 }
+
+// LD //////////////////////////////////////////////////////////////////////////
+void cpu_ld_r8_r8(struct cpu* cpu, int ra, int rb) {
+  unsigned char b=cpu_get_r8(cpu, rb);
+  cpu_set_r8(cpu, ra, b);
+}
+
+void cpu_ld_r8_d8(struct cpu* cpu, int ri, unsigned char d8) {
+  unsigned char b=d8;
+  cpu_set_r8(cpu, ri, b);
+}
+
+void cpu_ld_r8_ind8(struct cpu* cpu, int ra, int rb) {
+  unsigned short p=cpu_get_r16(cpu, rb);
+  unsigned char t=cpu->memory[p];
+  cpu_set_r8(cpu, ra, t);
+}
+
+void cpu_ld_ind8_r8(struct cpu* cpu, int ra, int rb) {
+  unsigned char a=cpu_get_r8(cpu, rb);
+  unsigned short p=cpu_get_r16(cpu, ra);
+  cpu->memory[p] = a;
+}
+
+void cpu_ld_hl_spd8(struct cpu* cpu, signed char d8) {
+  unsigned short a=cpu->regs.sp;
+  signed char b=d8;
+  signed int t=a+b;
+
+  unsigned int  carries=(t & 0x1FF) ^ a ^ b;
+  unsigned char z=0;
+  unsigned char n=0;
+  unsigned char h=carries&0x10 ? HF : 0;
+  unsigned char c=carries&0x100 ? CF : 0;
+
+  cpu_set_r16(cpu, RHL, (unsigned short) t);
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+//// OR ////////////////////////////////////////////////////////////////////////
+void cpu_or_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned char t) {
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=0;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_or_r8(struct cpu* cpu, int rb) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu_get_r8(cpu, rb);
+  unsigned char t=a | b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_or_flags(cpu, a, b, t);
+}
+
+void cpu_or_d8(struct cpu* cpu, unsigned char d8) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=d8;
+  unsigned char t=a | b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_or_flags(cpu, a, b, t);
+}
+
+void cpu_or_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu->memory[p];
+  unsigned char t=a | b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_or_flags(cpu, a, b, t);
+}
+
+//// PUSH //////////////////////////////////////////////////////////////////////
+void cpu_push_r16(struct cpu* cpu, int ri) {
+  unsigned char l=cpu_get_r8(cpu, ri+0);
+  unsigned char h=cpu_get_r8(cpu, ri+1);
+
+  cpu->memory[--cpu->regs.sp] = h;
+  cpu->memory[--cpu->regs.sp] = l;
+}
+
+//// POP ///////////////////////////////////////////////////////////////////////
+void cpu_pop_r16(struct cpu* cpu, int ri) {
+  unsigned char l=cpu->memory[cpu->regs.sp++];
+  unsigned char h=cpu->memory[cpu->regs.sp++];
+
+  cpu_set_r8(cpu, ri+0, l);
+  cpu_set_r8(cpu, ri+1, h);
+}
+
+//// SBC ///////////////////////////////////////////////////////////////////////
+void cpu_sbc_flags(struct cpu* cpu, unsigned char a, unsigned char b, signed int t) {
+  unsigned int  carries=(t & 0x1FFFF) ^ a ^ b;
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=NF;
+  unsigned char h=carries & 0x10  ? 0 : HF;
+  unsigned char c=carries & 0x100 ? 0 : CF;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_sbc_r8(struct cpu* cpu, int rb) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu_get_r8(cpu, rb);
+  signed int t=a-b;
+  if(cpu_get_r8(cpu, RF) & CF)
+    t = t-1;
+  cpu_set_r8(cpu, RA, (unsigned char) t);
+  cpu_sbc_flags(cpu, a, b, t);
+}
+
+void cpu_sbc_d8(struct cpu* cpu, unsigned char d8) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=d8;
+  signed int t=a-b;
+  if(cpu_get_r8(cpu, RF) & CF)
+    t = t-1;
+  cpu_set_r8(cpu, RA, (unsigned char) t);
+  cpu_sbc_flags(cpu, a, b, t);
+}
+
+void cpu_sbc_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu->memory[p];
+  signed int t=a-b;
+  if(cpu_get_r8(cpu, RF) & CF)
+    t = t-1;
+  cpu_set_r8(cpu, RA, t);
+  cpu_sbc_flags(cpu, a, b, t);
+}
+
+//// SUB ///////////////////////////////////////////////////////////////////////
+void cpu_sub_flags(struct cpu* cpu, unsigned char a, unsigned char b, signed int t) {
+  unsigned int  carries=(t & 0x1FF) ^ a ^ b;
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=1;
+  unsigned char h=carries & 0x10  ? 0 : HF;
+  unsigned char c=carries & 0x100 ? 0 : CF;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_sub_r8(struct cpu* cpu, int rb) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu_get_r8(cpu, rb);
+  signed int t=a-b;
+  cpu_set_r8(cpu, RA, (unsigned char) t);
+  cpu_sub_flags(cpu, a, b, t);
+}
+
+void cpu_sub_d8(struct cpu* cpu, unsigned char d8) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=d8;
+  signed int t=a-b;
+  cpu_set_r8(cpu, RA, (unsigned char) t);
+  cpu_sub_flags(cpu, a, b, t);
+}
+
+void cpu_sub_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu->memory[p];
+  signed int t=a-b;
+  cpu_set_r8(cpu, RA, (unsigned char) t);
+  cpu_sub_flags(cpu, a, b, t);
+}
+
+//// XOR ///////////////////////////////////////////////////////////////////////
+void cpu_xor_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned char t) {
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=0;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_xor_r8(struct cpu* cpu, int rb) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu_get_r8(cpu, rb);
+  unsigned char t=a ^ b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_xor_flags(cpu, a, b, t);
+}
+
+void cpu_xor_d8(struct cpu* cpu, unsigned char d8) {
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=d8;
+  unsigned char t=a ^ b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_xor_flags(cpu, a, b, t);
+}
+
+void cpu_xor_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu_get_r8(cpu, RA);
+  unsigned char b=cpu->memory[p];
+  unsigned char t=a ^ b;
+  cpu_set_r8(cpu, RA, t);
+  cpu_xor_flags(cpu, a, b, t);
+}
+
+//// RST ///////////////////////////////////////////////////////////////////////
+void cpu_rst_addr(struct cpu* cpu, unsigned short addr) {
+  unsigned char l=US_TO_LUC(cpu->regs.pc);
+  unsigned char h=US_TO_HUC(cpu->regs.pc);
+
+  cpu->memory[--cpu->regs.sp] = h;
+  cpu->memory[--cpu->regs.sp] = l;
+  
+  cpu->regs.pc = addr;
+}
+
+//// ROTATION //////////////////////////////////////////////////////////////////
+void cpu_rr_r8(struct cpu* cpu, int ri) {
+  unsigned char f=cpu_get_r8(cpu, RF);
+  unsigned char a=cpu_get_r8(cpu, ri);
+
+  unsigned char t=a >> 1;
+  if(f & CF)
+    t = t | 0x80;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+  unsigned char c=a&0x01 ? CF : 0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
+void cpu_rrc_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+
+  unsigned char c;
+  unsigned char t=a >> 1;
+  if(a & 0x01) {
+    t = t | 0x80;
+    c = CF;
+  }
+  else
+    c = 0;
+
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
+void cpu_rl_r8(struct cpu* cpu, int ri) {
+  unsigned char f=cpu_get_r8(cpu, RF);
+  unsigned char a=cpu_get_r8(cpu, ri);
+
+  unsigned char t=a << 1;
+  if(f & CF)
+    t = t | 0x01;
+
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+  unsigned char c=a&0x80 ? CF : 0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
+void cpu_rlc_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+
+  unsigned char c;
+  unsigned char t=a << 1;
+  if(a & 0x80) {
+    t = t | 0x01;
+    c = CF;
+  }
+  else
+    c = 0;
+
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
