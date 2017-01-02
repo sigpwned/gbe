@@ -14,6 +14,7 @@ struct registers {
 struct cpu {
   struct registers regs;
   unsigned char* memory;
+  unsigned char busy;
   unsigned char ime;
   unsigned char halted;
   unsigned char stopped;
