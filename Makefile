@@ -1,11 +1,11 @@
 CC=gcc
 CXX=g++
-CFLAGS=-Iinclude/ -Wall -O0
+CFLAGS=-Iinclude/ -Wall -O0 `sdl-config --cflags`
 LDFLAGS=
 HEADERS=include/*.h 
-OBJECTS=cpu.o opcodes.o
+OBJECTS=cpu.o opcodes.o screen.o
 TESTS=$(OBJECTS:.o=.to)
-LIBRARIES=
+LIBRARIES=`sdl-config --libs`
 TARGET=gbe
 
 .PHONY: default all clean test

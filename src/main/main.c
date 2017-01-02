@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "SDL/SDL.h"
+
+#include "gbe.h"
 #include "cpu.h"
+#include "screen.h"
+
 
 // From GameBoy-Online emulator
 const unsigned char BOOT_ROM[256] = {
@@ -23,13 +29,43 @@ const unsigned char BOOT_ROM[256] = {
   0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50
 };
 
-int main(int argc, const char* argv[]) {
-  unsigned char* memory=(unsigned char *) malloc(64*1024);
+int main(int argc, char* argv[]) {
+  if(SDL_Init(SDL_INIT_EVERYTHING) != 0)
+    exit(ERR_SDL);
+
+  unsigned char memory[64*1024];
   memcpy(memory, BOOT_ROM, sizeof(BOOT_ROM));
 
   struct cpu cpu;
   cpu_init(&cpu, memory);
 
-  while(1)
+  struct screen screen;
+  screen_init(&screen, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+  int working=1;
+  while(working) {
+    SDL_Event e;
+    while(SDL_PollEvent(&e)) {
+      switch(e.type) {
+      case SDL_QUIT:
+        working = 0;
+        break;
+      default:
+        // Ignore this for now
+        break;
+      }
+    }
+
+    screen_put_pixel(&screen, 40, 40, 0xFF, 0x00, 0x00);
+
     cpu_tick(&cpu);
+
+    screen_flip(&screen);
+  }
+
+  screen_destroy(&screen);
+
+  SDL_Quit();
+
+  return 0;
 }
