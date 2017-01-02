@@ -96,9 +96,34 @@ void cpu_xor_d8(struct cpu* cpu, unsigned char d8);
 void cpu_xor_ind8(struct cpu* cpu);
 
 void cpu_rr_r8(struct cpu* cpu, int ri);
+void cpu_rr_ind8(struct cpu* cpu);
 void cpu_rrc_r8(struct cpu* cpu, int ri);
+void cpu_rrc_ind8(struct cpu* cpu);
 void cpu_rl_r8(struct cpu* cpu, int ri);
+void cpu_rl_ind8(struct cpu* cpu);
 void cpu_rlc_r8(struct cpu* cpu, int ri);
+void cpu_rlc_ind8(struct cpu* cpu);
+
+void cpu_bit_r8_n(struct cpu* cpu, int ri, int n);
+void cpu_bit_ind8_n(struct cpu* cpu, int n);
+
+void cpu_set_r8_n(struct cpu* cpu, int ri, int n);
+void cpu_set_ind8_n(struct cpu* cpu, int n);
+
+void cpu_res_r8_n(struct cpu* cpu, int ri, int n);
+void cpu_res_ind8_n(struct cpu* cpu, int n);
+
+void cpu_swap_r8(struct cpu* cpu, int ri);
+void cpu_swap_ind8(struct cpu* cpu);
+
+void cpu_sla_r8(struct cpu* cpu, int ri);
+void cpu_sla_ind8(struct cpu* cpu);
+
+void cpu_sra_r8(struct cpu* cpu, int ri);
+void cpu_sra_ind8(struct cpu* cpu);
+
+void cpu_srl_r8(struct cpu* cpu, int ri);
+void cpu_srl_ind8(struct cpu* cpu);
 
 void cpu_rst_addr(struct cpu* cpu, unsigned short addr);
 
@@ -1118,6 +1143,815 @@ void cpu_tick(struct cpu* cpu) {
   }
 }
 
+void cpu_tick_cb(struct cpu* cpu) {
+  unsigned char opcode=cpu->memory[cpu->regs.pc++];
+  switch(opcode) {
+  case BIT_0_A:
+    cpu_bit_r8_n(cpu, RA, 0);
+    break;
+  case BIT_0_B:
+    cpu_bit_r8_n(cpu, RB, 0);
+    break;
+  case BIT_0_C:
+    cpu_bit_r8_n(cpu, RC, 0);
+    break;
+  case BIT_0_D:
+    cpu_bit_r8_n(cpu, RD, 0);
+    break;
+  case BIT_0_E:
+    cpu_bit_r8_n(cpu, RE, 0);
+    break;
+  case BIT_0_H:
+    cpu_bit_r8_n(cpu, RH, 0);
+    break;
+  case BIT_0_L:
+    cpu_bit_r8_n(cpu, RL, 0);
+    break;
+  case BIT_0_HL_IND:
+    cpu_bit_ind8_n(cpu, 0);
+    break;
+
+  case BIT_1_A:
+    cpu_bit_r8_n(cpu, RA, 1);
+    break;
+  case BIT_1_B:
+    cpu_bit_r8_n(cpu, RB, 1);
+    break;
+  case BIT_1_C:
+    cpu_bit_r8_n(cpu, RC, 1);
+    break;
+  case BIT_1_D:
+    cpu_bit_r8_n(cpu, RD, 1);
+    break;
+  case BIT_1_E:
+    cpu_bit_r8_n(cpu, RE, 1);
+    break;
+  case BIT_1_H:
+    cpu_bit_r8_n(cpu, RH, 1);
+    break;
+  case BIT_1_L:
+    cpu_bit_r8_n(cpu, RL, 1);
+    break;
+  case BIT_1_HL_IND:
+    cpu_bit_ind8_n(cpu, 1);
+    break;
+
+  case BIT_2_A:
+    cpu_bit_r8_n(cpu, RA, 2);
+    break;
+  case BIT_2_B:
+    cpu_bit_r8_n(cpu, RB, 2);
+    break;
+  case BIT_2_C:
+    cpu_bit_r8_n(cpu, RC, 2);
+    break;
+  case BIT_2_D:
+    cpu_bit_r8_n(cpu, RD, 2);
+    break;
+  case BIT_2_E:
+    cpu_bit_r8_n(cpu, RE, 2);
+    break;
+  case BIT_2_H:
+    cpu_bit_r8_n(cpu, RH, 2);
+    break;
+  case BIT_2_L:
+    cpu_bit_r8_n(cpu, RL, 2);
+    break;
+  case BIT_2_HL_IND:
+    cpu_bit_ind8_n(cpu, 2);
+    break;
+
+  case BIT_3_A:
+    cpu_bit_r8_n(cpu, RA, 3);
+    break;
+  case BIT_3_B:
+    cpu_bit_r8_n(cpu, RB, 3);
+    break;
+  case BIT_3_C:
+    cpu_bit_r8_n(cpu, RC, 3);
+    break;
+  case BIT_3_D:
+    cpu_bit_r8_n(cpu, RD, 3);
+    break;
+  case BIT_3_E:
+    cpu_bit_r8_n(cpu, RE, 3);
+    break;
+  case BIT_3_H:
+    cpu_bit_r8_n(cpu, RH, 3);
+    break;
+  case BIT_3_L:
+    cpu_bit_r8_n(cpu, RL, 3);
+    break;
+  case BIT_3_HL_IND:
+    cpu_bit_ind8_n(cpu, 3);
+    break;
+
+  case BIT_4_A:
+    cpu_bit_r8_n(cpu, RA, 4);
+    break;
+  case BIT_4_B:
+    cpu_bit_r8_n(cpu, RB, 4);
+    break;
+  case BIT_4_C:
+    cpu_bit_r8_n(cpu, RC, 4);
+    break;
+  case BIT_4_D:
+    cpu_bit_r8_n(cpu, RD, 4);
+    break;
+  case BIT_4_E:
+    cpu_bit_r8_n(cpu, RE, 4);
+    break;
+  case BIT_4_H:
+    cpu_bit_r8_n(cpu, RH, 4);
+    break;
+  case BIT_4_L:
+    cpu_bit_r8_n(cpu, RL, 4);
+    break;
+  case BIT_4_HL_IND:
+    cpu_bit_ind8_n(cpu, 4);
+    break;
+
+  case BIT_5_A:
+    cpu_bit_r8_n(cpu, RA, 5);
+    break;
+  case BIT_5_B:
+    cpu_bit_r8_n(cpu, RB, 5);
+    break;
+  case BIT_5_C:
+    cpu_bit_r8_n(cpu, RC, 5);
+    break;
+  case BIT_5_D:
+    cpu_bit_r8_n(cpu, RD, 5);
+    break;
+  case BIT_5_E:
+    cpu_bit_r8_n(cpu, RE, 5);
+    break;
+  case BIT_5_H:
+    cpu_bit_r8_n(cpu, RH, 5);
+    break;
+  case BIT_5_L:
+    cpu_bit_r8_n(cpu, RL, 5);
+    break;
+  case BIT_5_HL_IND:
+    cpu_bit_ind8_n(cpu, 5);
+    break;
+
+  case BIT_6_A:
+    cpu_bit_r8_n(cpu, RA, 6);
+    break;
+  case BIT_6_B:
+    cpu_bit_r8_n(cpu, RB, 6);
+    break;
+  case BIT_6_C:
+    cpu_bit_r8_n(cpu, RC, 6);
+    break;
+  case BIT_6_D:
+    cpu_bit_r8_n(cpu, RD, 6);
+    break;
+  case BIT_6_E:
+    cpu_bit_r8_n(cpu, RE, 6);
+    break;
+  case BIT_6_H:
+    cpu_bit_r8_n(cpu, RH, 6);
+    break;
+  case BIT_6_L:
+    cpu_bit_r8_n(cpu, RL, 6);
+    break;
+  case BIT_6_HL_IND:
+    cpu_bit_ind8_n(cpu, 6);
+    break;
+
+  case BIT_7_A:
+    cpu_bit_r8_n(cpu, RA, 7);
+    break;
+  case BIT_7_B:
+    cpu_bit_r8_n(cpu, RB, 7);
+    break;
+  case BIT_7_C:
+    cpu_bit_r8_n(cpu, RC, 7);
+    break;
+  case BIT_7_D:
+    cpu_bit_r8_n(cpu, RD, 7);
+    break;
+  case BIT_7_E:
+    cpu_bit_r8_n(cpu, RE, 7);
+    break;
+  case BIT_7_H:
+    cpu_bit_r8_n(cpu, RH, 7);
+    break;
+  case BIT_7_L:
+    cpu_bit_r8_n(cpu, RL, 7);
+    break;
+  case BIT_7_HL_IND:
+    cpu_bit_ind8_n(cpu, 7);
+    break;
+
+  case RES_0_A:
+    cpu_res_r8_n(cpu, RA, 0);
+    break;
+  case RES_0_B:
+    cpu_res_r8_n(cpu, RB, 0);
+    break;
+  case RES_0_C:
+    cpu_res_r8_n(cpu, RC, 0);
+    break;
+  case RES_0_D:
+    cpu_res_r8_n(cpu, RD, 0);
+    break;
+  case RES_0_E:
+    cpu_res_r8_n(cpu, RE, 0);
+    break;
+  case RES_0_H:
+    cpu_res_r8_n(cpu, RH, 0);
+    break;
+  case RES_0_L:
+    cpu_res_r8_n(cpu, RL, 0);
+    break;
+  case RES_0_HL_IND:
+    cpu_res_ind8_n(cpu, 0);
+    break;
+
+  case RES_1_A:
+    cpu_res_r8_n(cpu, RA, 1);
+    break;
+  case RES_1_B:
+    cpu_res_r8_n(cpu, RB, 1);
+    break;
+  case RES_1_C:
+    cpu_res_r8_n(cpu, RC, 1);
+    break;
+  case RES_1_D:
+    cpu_res_r8_n(cpu, RD, 1);
+    break;
+  case RES_1_E:
+    cpu_res_r8_n(cpu, RE, 1);
+    break;
+  case RES_1_H:
+    cpu_res_r8_n(cpu, RH, 1);
+    break;
+  case RES_1_L:
+    cpu_res_r8_n(cpu, RL, 1);
+    break;
+  case RES_1_HL_IND:
+    cpu_res_ind8_n(cpu, 1);
+    break;
+
+  case RES_2_A:
+    cpu_res_r8_n(cpu, RA, 2);
+    break;
+  case RES_2_B:
+    cpu_res_r8_n(cpu, RB, 2);
+    break;
+  case RES_2_C:
+    cpu_res_r8_n(cpu, RC, 2);
+    break;
+  case RES_2_D:
+    cpu_res_r8_n(cpu, RD, 2);
+    break;
+  case RES_2_E:
+    cpu_res_r8_n(cpu, RE, 2);
+    break;
+  case RES_2_H:
+    cpu_res_r8_n(cpu, RH, 2);
+    break;
+  case RES_2_L:
+    cpu_res_r8_n(cpu, RL, 2);
+    break;
+  case RES_2_HL_IND:
+    cpu_res_ind8_n(cpu, 2);
+    break;
+
+  case RES_3_A:
+    cpu_res_r8_n(cpu, RA, 3);
+    break;
+  case RES_3_B:
+    cpu_res_r8_n(cpu, RB, 3);
+    break;
+  case RES_3_C:
+    cpu_res_r8_n(cpu, RC, 3);
+    break;
+  case RES_3_D:
+    cpu_res_r8_n(cpu, RD, 3);
+    break;
+  case RES_3_E:
+    cpu_res_r8_n(cpu, RE, 3);
+    break;
+  case RES_3_H:
+    cpu_res_r8_n(cpu, RH, 3);
+    break;
+  case RES_3_L:
+    cpu_res_r8_n(cpu, RL, 3);
+    break;
+  case RES_3_HL_IND:
+    cpu_res_ind8_n(cpu, 3);
+    break;
+
+  case RES_4_A:
+    cpu_res_r8_n(cpu, RA, 4);
+    break;
+  case RES_4_B:
+    cpu_res_r8_n(cpu, RB, 4);
+    break;
+  case RES_4_C:
+    cpu_res_r8_n(cpu, RC, 4);
+    break;
+  case RES_4_D:
+    cpu_res_r8_n(cpu, RD, 4);
+    break;
+  case RES_4_E:
+    cpu_res_r8_n(cpu, RE, 4);
+    break;
+  case RES_4_H:
+    cpu_res_r8_n(cpu, RH, 4);
+    break;
+  case RES_4_L:
+    cpu_res_r8_n(cpu, RL, 4);
+    break;
+  case RES_4_HL_IND:
+    cpu_res_ind8_n(cpu, 4);
+    break;
+
+  case RES_5_A:
+    cpu_res_r8_n(cpu, RA, 5);
+    break;
+  case RES_5_B:
+    cpu_res_r8_n(cpu, RB, 5);
+    break;
+  case RES_5_C:
+    cpu_res_r8_n(cpu, RC, 5);
+    break;
+  case RES_5_D:
+    cpu_res_r8_n(cpu, RD, 5);
+    break;
+  case RES_5_E:
+    cpu_res_r8_n(cpu, RE, 5);
+    break;
+  case RES_5_H:
+    cpu_res_r8_n(cpu, RH, 5);
+    break;
+  case RES_5_L:
+    cpu_res_r8_n(cpu, RL, 5);
+    break;
+  case RES_5_HL_IND:
+    cpu_res_ind8_n(cpu, 5);
+    break;
+
+  case RES_6_A:
+    cpu_res_r8_n(cpu, RA, 6);
+    break;
+  case RES_6_B:
+    cpu_res_r8_n(cpu, RB, 6);
+    break;
+  case RES_6_C:
+    cpu_res_r8_n(cpu, RC, 6);
+    break;
+  case RES_6_D:
+    cpu_res_r8_n(cpu, RD, 6);
+    break;
+  case RES_6_E:
+    cpu_res_r8_n(cpu, RE, 6);
+    break;
+  case RES_6_H:
+    cpu_res_r8_n(cpu, RH, 6);
+    break;
+  case RES_6_L:
+    cpu_res_r8_n(cpu, RL, 6);
+    break;
+  case RES_6_HL_IND:
+    cpu_res_ind8_n(cpu, 6);
+    break;
+
+  case RES_7_A:
+    cpu_res_r8_n(cpu, RA, 7);
+    break;
+  case RES_7_B:
+    cpu_res_r8_n(cpu, RB, 7);
+    break;
+  case RES_7_C:
+    cpu_res_r8_n(cpu, RC, 7);
+    break;
+  case RES_7_D:
+    cpu_res_r8_n(cpu, RD, 7);
+    break;
+  case RES_7_E:
+    cpu_res_r8_n(cpu, RE, 7);
+    break;
+  case RES_7_H:
+    cpu_res_r8_n(cpu, RH, 7);
+    break;
+  case RES_7_L:
+    cpu_res_r8_n(cpu, RL, 7);
+    break;
+  case RES_7_HL_IND:
+    cpu_res_ind8_n(cpu, 7);
+    break;
+
+  case SET_0_A:
+    cpu_set_r8_n(cpu, RA, 0);
+    break;
+  case SET_0_B:
+    cpu_set_r8_n(cpu, RB, 0);
+    break;
+  case SET_0_C:
+    cpu_set_r8_n(cpu, RC, 0);
+    break;
+  case SET_0_D:
+    cpu_set_r8_n(cpu, RD, 0);
+    break;
+  case SET_0_E:
+    cpu_set_r8_n(cpu, RE, 0);
+    break;
+  case SET_0_H:
+    cpu_set_r8_n(cpu, RH, 0);
+    break;
+  case SET_0_L:
+    cpu_set_r8_n(cpu, RL, 0);
+    break;
+  case SET_0_HL_IND:
+    cpu_set_ind8_n(cpu, 0);
+    break;
+
+  case SET_1_A:
+    cpu_set_r8_n(cpu, RA, 1);
+    break;
+  case SET_1_B:
+    cpu_set_r8_n(cpu, RB, 1);
+    break;
+  case SET_1_C:
+    cpu_set_r8_n(cpu, RC, 1);
+    break;
+  case SET_1_D:
+    cpu_set_r8_n(cpu, RD, 1);
+    break;
+  case SET_1_E:
+    cpu_set_r8_n(cpu, RE, 1);
+    break;
+  case SET_1_H:
+    cpu_set_r8_n(cpu, RH, 1);
+    break;
+  case SET_1_L:
+    cpu_set_r8_n(cpu, RL, 1);
+    break;
+  case SET_1_HL_IND:
+    cpu_set_ind8_n(cpu, 1);
+    break;
+
+  case SET_2_A:
+    cpu_set_r8_n(cpu, RA, 2);
+    break;
+  case SET_2_B:
+    cpu_set_r8_n(cpu, RB, 2);
+    break;
+  case SET_2_C:
+    cpu_set_r8_n(cpu, RC, 2);
+    break;
+  case SET_2_D:
+    cpu_set_r8_n(cpu, RD, 2);
+    break;
+  case SET_2_E:
+    cpu_set_r8_n(cpu, RE, 2);
+    break;
+  case SET_2_H:
+    cpu_set_r8_n(cpu, RH, 2);
+    break;
+  case SET_2_L:
+    cpu_set_r8_n(cpu, RL, 2);
+    break;
+  case SET_2_HL_IND:
+    cpu_set_ind8_n(cpu, 2);
+    break;
+
+  case SET_3_A:
+    cpu_set_r8_n(cpu, RA, 3);
+    break;
+  case SET_3_B:
+    cpu_set_r8_n(cpu, RB, 3);
+    break;
+  case SET_3_C:
+    cpu_set_r8_n(cpu, RC, 3);
+    break;
+  case SET_3_D:
+    cpu_set_r8_n(cpu, RD, 3);
+    break;
+  case SET_3_E:
+    cpu_set_r8_n(cpu, RE, 3);
+    break;
+  case SET_3_H:
+    cpu_set_r8_n(cpu, RH, 3);
+    break;
+  case SET_3_L:
+    cpu_set_r8_n(cpu, RL, 3);
+    break;
+  case SET_3_HL_IND:
+    cpu_set_ind8_n(cpu, 3);
+    break;
+
+  case SET_4_A:
+    cpu_set_r8_n(cpu, RA, 4);
+    break;
+  case SET_4_B:
+    cpu_set_r8_n(cpu, RB, 4);
+    break;
+  case SET_4_C:
+    cpu_set_r8_n(cpu, RC, 4);
+    break;
+  case SET_4_D:
+    cpu_set_r8_n(cpu, RD, 4);
+    break;
+  case SET_4_E:
+    cpu_set_r8_n(cpu, RE, 4);
+    break;
+  case SET_4_H:
+    cpu_set_r8_n(cpu, RH, 4);
+    break;
+  case SET_4_L:
+    cpu_set_r8_n(cpu, RL, 4);
+    break;
+  case SET_4_HL_IND:
+    cpu_set_ind8_n(cpu, 4);
+    break;
+
+  case SET_5_A:
+    cpu_set_r8_n(cpu, RA, 5);
+    break;
+  case SET_5_B:
+    cpu_set_r8_n(cpu, RB, 5);
+    break;
+  case SET_5_C:
+    cpu_set_r8_n(cpu, RC, 5);
+    break;
+  case SET_5_D:
+    cpu_set_r8_n(cpu, RD, 5);
+    break;
+  case SET_5_E:
+    cpu_set_r8_n(cpu, RE, 5);
+    break;
+  case SET_5_H:
+    cpu_set_r8_n(cpu, RH, 5);
+    break;
+  case SET_5_L:
+    cpu_set_r8_n(cpu, RL, 5);
+    break;
+  case SET_5_HL_IND:
+    cpu_set_ind8_n(cpu, 5);
+    break;
+
+  case SET_6_A:
+    cpu_set_r8_n(cpu, RA, 6);
+    break;
+  case SET_6_B:
+    cpu_set_r8_n(cpu, RB, 6);
+    break;
+  case SET_6_C:
+    cpu_set_r8_n(cpu, RC, 6);
+    break;
+  case SET_6_D:
+    cpu_set_r8_n(cpu, RD, 6);
+    break;
+  case SET_6_E:
+    cpu_set_r8_n(cpu, RE, 6);
+    break;
+  case SET_6_H:
+    cpu_set_r8_n(cpu, RH, 6);
+    break;
+  case SET_6_L:
+    cpu_set_r8_n(cpu, RL, 6);
+    break;
+  case SET_6_HL_IND:
+    cpu_set_ind8_n(cpu, 6);
+    break;
+
+  case SET_7_A:
+    cpu_set_r8_n(cpu, RA, 7);
+    break;
+  case SET_7_B:
+    cpu_set_r8_n(cpu, RB, 7);
+    break;
+  case SET_7_C:
+    cpu_set_r8_n(cpu, RC, 7);
+    break;
+  case SET_7_D:
+    cpu_set_r8_n(cpu, RD, 7);
+    break;
+  case SET_7_E:
+    cpu_set_r8_n(cpu, RE, 7);
+    break;
+  case SET_7_H:
+    cpu_set_r8_n(cpu, RH, 7);
+    break;
+  case SET_7_L:
+    cpu_set_r8_n(cpu, RL, 7);
+    break;
+  case SET_7_HL_IND:
+    cpu_set_ind8_n(cpu, 7);
+    break;
+
+  case RLC_A:
+    cpu_rlc_r8(cpu, RA);
+    break;
+  case RLC_B:
+    cpu_rlc_r8(cpu, RB);
+    break;
+  case RLC_C:
+    cpu_rlc_r8(cpu, RC);
+    break;
+  case RLC_D:
+    cpu_rlc_r8(cpu, RD);
+    break;
+  case RLC_E:
+    cpu_rlc_r8(cpu, RE);
+    break;
+  case RLC_H:
+    cpu_rlc_r8(cpu, RH);
+    break;
+  case RLC_L:
+    cpu_rlc_r8(cpu, RH);
+    break;
+  case RLC_HL_IND:
+    cpu_rlc_ind8(cpu);
+    break;
+
+  case RL_A:
+    cpu_rl_r8(cpu, RA);
+    break;
+  case RL_B:
+    cpu_rl_r8(cpu, RB);
+    break;
+  case RL_C:
+    cpu_rl_r8(cpu, RC);
+    break;
+  case RL_D:
+    cpu_rl_r8(cpu, RD);
+    break;
+  case RL_E:
+    cpu_rl_r8(cpu, RE);
+    break;
+  case RL_H:
+    cpu_rl_r8(cpu, RH);
+    break;
+  case RL_L:
+    cpu_rl_r8(cpu, RL);
+    break;
+  case RL_HL_IND:
+    cpu_rl_ind8(cpu);
+    break;
+
+  case RRC_A:
+    cpu_rrc_r8(cpu, RA);
+    break;
+  case RRC_B:
+    cpu_rrc_r8(cpu, RB);
+    break;
+  case RRC_C:
+    cpu_rrc_r8(cpu, RC);
+    break;
+  case RRC_D:
+    cpu_rrc_r8(cpu, RD);
+    break;
+  case RRC_E:
+    cpu_rrc_r8(cpu, RE);
+    break;
+  case RRC_H:
+    cpu_rrc_r8(cpu, RH);
+    break;
+  case RRC_L:
+    cpu_rrc_r8(cpu, RL);
+    break;
+  case RRC_HL_IND:
+    cpu_rrc_ind8(cpu);
+    break;
+
+  case RR_A:
+    cpu_rr_r8(cpu, RA);
+    break;
+  case RR_B:
+    cpu_rr_r8(cpu, RB);
+    break;
+  case RR_C:
+    cpu_rr_r8(cpu, RC);
+    break;
+  case RR_D:
+    cpu_rr_r8(cpu, RD);
+    break;
+  case RR_E:
+    cpu_rr_r8(cpu, RE);
+    break;
+  case RR_H:
+    cpu_rr_r8(cpu, RH);
+    break;
+  case RR_L:
+    cpu_rr_r8(cpu, RL);
+    break;
+  case RR_HL_IND:
+    cpu_rr_ind8(cpu);
+    break;
+
+  case SLA_A:
+    cpu_sla_r8(cpu, RA);
+    break;
+  case SLA_B:
+    cpu_sla_r8(cpu, RB);
+    break;
+  case SLA_C:
+    cpu_sla_r8(cpu, RC);
+    break;
+  case SLA_D:
+    cpu_sla_r8(cpu, RD);
+    break;
+  case SLA_E:
+    cpu_sla_r8(cpu, RE);
+    break;
+  case SLA_H:
+    cpu_sla_r8(cpu, RH);
+    break;
+  case SLA_L:
+    cpu_sla_r8(cpu, RL);
+    break;
+  case SLA_HL_IND:
+    cpu_sla_ind8(cpu);
+    break;
+
+  case SRA_A:
+    cpu_sra_r8(cpu, RA);
+    break;
+  case SRA_B:
+    cpu_sra_r8(cpu, RB);
+    break;
+  case SRA_C:
+    cpu_sra_r8(cpu, RC);
+    break;
+  case SRA_D:
+    cpu_sra_r8(cpu, RD);
+    break;
+  case SRA_E:
+    cpu_sra_r8(cpu, RE);
+    break;
+  case SRA_H:
+    cpu_sra_r8(cpu, RH);
+    break;
+  case SRA_L:
+    cpu_sra_r8(cpu, RL);
+    break;
+  case SRA_HL_IND:
+    cpu_sra_ind8(cpu);
+    break;
+
+  case SRL_A:
+    cpu_srl_r8(cpu, RA);
+    break;
+  case SRL_B:
+    cpu_srl_r8(cpu, RB);
+    break;
+  case SRL_C:
+    cpu_srl_r8(cpu, RC);
+    break;
+  case SRL_D:
+    cpu_srl_r8(cpu, RD);
+    break;
+  case SRL_E:
+    cpu_srl_r8(cpu, RE);
+    break;
+  case SRL_H:
+    cpu_srl_r8(cpu, RH);
+    break;
+  case SRL_L:
+    cpu_srl_r8(cpu, RL);
+    break;
+  case SRL_HL_IND:
+    cpu_srl_ind8(cpu);
+    break;
+
+  case SWAP_A:
+    cpu_swap_r8(cpu, RA);
+    break;
+  case SWAP_B:
+    cpu_swap_r8(cpu, RB);
+    break;
+  case SWAP_C:
+    cpu_swap_r8(cpu, RC);
+    break;
+  case SWAP_D:
+    cpu_swap_r8(cpu, RD);
+    break;
+  case SWAP_E:
+    cpu_swap_r8(cpu, RE);
+    break;
+  case SWAP_H:
+    cpu_swap_r8(cpu, RH);
+    break;
+  case SWAP_L:
+    cpu_swap_r8(cpu, RL);
+    break;
+  case SWAP_HL_IND:
+    cpu_swap_ind8(cpu);
+    break;
+
+  default:
+    exit(ERR_BAD_OPCODE);
+    break;
+  }
+}
+
 // 8-BIT REGISTERS /////////////////////////////////////////////////////////////
 unsigned char cpu_get_a(struct cpu* cpu) {
   return cpu_get_r8(cpu, RA);
@@ -1803,6 +2637,24 @@ void cpu_rr_r8(struct cpu* cpu, int ri) {
   cpu_set_r8(cpu, RF, z | h | n | c);
 }
 
+void cpu_rr_ind8(struct cpu* cpu) {
+  unsigned char f=cpu_get_r8(cpu, RF);
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+
+  unsigned char t=a >> 1;
+  if(f & CF)
+    t = t | 0x80;
+
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+  unsigned char c=a&0x01 ? CF : 0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
 void cpu_rrc_r8(struct cpu* cpu, int ri) {
   unsigned char a=cpu_get_r8(cpu, ri);
 
@@ -1823,6 +2675,27 @@ void cpu_rrc_r8(struct cpu* cpu, int ri) {
   cpu_set_r8(cpu, RF, z | h | n | c);
 }
 
+void cpu_rrc_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+
+  unsigned char c;
+  unsigned char t=a >> 1;
+  if(a & 0x01) {
+    t = t | 0x80;
+    c = CF;
+  }
+  else
+    c = 0;
+
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
 void cpu_rl_r8(struct cpu* cpu, int ri) {
   unsigned char f=cpu_get_r8(cpu, RF);
   unsigned char a=cpu_get_r8(cpu, ri);
@@ -1838,6 +2711,24 @@ void cpu_rl_r8(struct cpu* cpu, int ri) {
   unsigned char c=a&0x80 ? CF : 0;
 
   cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
+void cpu_rl_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char f=cpu_get_r8(cpu, RF);
+
+  unsigned char t=a << 1;
+  if(f & CF)
+    t = t | 0x01;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+  unsigned char c=a&0x80 ? CF : 0;
+
+  cpu->memory[p] = t;
   cpu_set_r8(cpu, RF, z | h | n | c);
 }
 
@@ -1861,3 +2752,187 @@ void cpu_rlc_r8(struct cpu* cpu, int ri) {
   cpu_set_r8(cpu, RF, z | h | n | c);
 }
 
+void cpu_rlc_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+
+  unsigned char c;
+  unsigned char t=a << 1;
+  if(a & 0x80) {
+    t = t | 0x01;
+    c = CF;
+  }
+  else
+    c = 0;
+
+  unsigned char z=t ? 0 : ZF;
+  unsigned char h=0;
+  unsigned char n=0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | h | n | c);
+}
+
+//// BIT ///////////////////////////////////////////////////////////////////////
+void cpu_bit_r8_n(struct cpu* cpu, int ri, int bi) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char m=1 << bi;
+  unsigned char f=cpu_get_r8(cpu, RF);
+
+  unsigned char z=a & m ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=HF;
+  unsigned char c=f & CF;
+
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_bit_ind8_n(struct cpu* cpu, int bi) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char m=1 << bi;
+  unsigned char f=cpu_get_r8(cpu, RF);
+
+  unsigned char z=a & m ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=HF;
+  unsigned char c=f & CF;
+
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_set_r8_n(struct cpu* cpu, int ri, int bi) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char m=1 << bi;
+  cpu_set_r8(cpu, ri, a | m);
+}
+
+void cpu_set_ind8_n(struct cpu* cpu, int bi) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char m=1 << bi;
+  cpu->memory[p] = a | m;
+}
+
+void cpu_res_r8_n(struct cpu* cpu, int ri, int bi) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char m=1 << bi;
+  cpu_set_r8(cpu, ri, a & ~m);
+}
+
+void cpu_res_ind8_n(struct cpu* cpu, int bi) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char m=1 << bi;
+  cpu->memory[p] = a & ~m;
+}
+
+void cpu_swap_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char al=a & 0x0F;
+  unsigned char ah=a & 0xF0;
+  unsigned char t=(al << 4) | (ah >> 4);
+
+  unsigned char z=t ? 0 : ZF;
+
+  cpu_set_r8(cpu, ri, t);  
+  cpu_set_r8(cpu, RF, z);
+}
+
+void cpu_swap_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char al=a & 0x0F;
+  unsigned char ah=a & 0xF0;
+  unsigned char t=(al << 4) | (ah >> 4);
+
+  unsigned char z=t ? 0 : ZF;
+  
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z);
+}
+
+void cpu_sla_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char t=a << 1;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x80 ? CF : 0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_sla_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char t=a << 1;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x80 ? CF : 0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_sra_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char t=a >> 1;
+  if(a & 0x80)
+    t |= 0x80;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x01 ? CF : 0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_sra_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char t=a >> 1;
+  if(a & 0x80)
+    t |= 0x80;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x01 ? CF : 0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_srl_r8(struct cpu* cpu, int ri) {
+  unsigned char a=cpu_get_r8(cpu, ri);
+  unsigned char t=a >> 1;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x01 ? CF : 0;
+
+  cpu_set_r8(cpu, ri, t);
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
+
+void cpu_srl_ind8(struct cpu* cpu) {
+  unsigned short p=cpu_get_r16(cpu, RHL);
+  unsigned char a=cpu->memory[p];
+  unsigned char t=a >> 1;
+  
+  unsigned char z=t ? 0 : ZF;
+  unsigned char n=0;
+  unsigned char h=0;
+  unsigned char c=a & 0x01 ? CF : 0;
+
+  cpu->memory[p] = t;
+  cpu_set_r8(cpu, RF, z | n | h | c);
+}
