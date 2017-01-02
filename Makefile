@@ -3,7 +3,7 @@ CXX=g++
 CFLAGS=-Iinclude/ -Wall
 LDFLAGS=
 HEADERS=include/*.h 
-OBJECTS=cpu.o
+OBJECTS=cpu.o opcodes.o
 TESTS=$(OBJECTS:.o=.to)
 LIBRARIES=
 TARGET=gbe

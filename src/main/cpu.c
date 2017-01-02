@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "cpu.h"
 #include "opcodes.h"
@@ -133,8 +134,16 @@ void cpu_init(struct cpu* cpu, unsigned char* memory) {
   cpu->memory = memory;
 }
 
+void cpu_tick_cb(struct cpu* cpu);
+
 void cpu_tick(struct cpu* cpu) {
   unsigned char opcode=cpu->memory[cpu->regs.pc++];
+
+#ifdef GBE_DEBUG
+  struct opcode* d=opcode_describe(opcode);
+  fprintf(stderr, "PC %5d %s\n", cpu->regs.pc-1, d->name);
+#endif
+
   switch(opcode) {
   // ADC ///////////////////////////////////////////////////////////////////////
   case ADC_A_A:
@@ -945,6 +954,7 @@ void cpu_tick(struct cpu* cpu) {
 
   // OTHER INSTRUCTIONS ////////////////////////////////////////////////////////
   case PREFIX_CB:
+    cpu_tick_cb(cpu);
     break;
 
   // RETURN ////////////////////////////////////////////////////////////////////
@@ -1145,6 +1155,12 @@ void cpu_tick(struct cpu* cpu) {
 
 void cpu_tick_cb(struct cpu* cpu) {
   unsigned char opcode=cpu->memory[cpu->regs.pc++];
+
+#ifdef GBE_DEBUG
+  struct opcode* d=opcode_cb_describe(opcode);
+  fprintf(stderr, "         %s\n", d->name);
+#endif
+
   switch(opcode) {
   case BIT_0_A:
     cpu_bit_r8_n(cpu, RA, 0);

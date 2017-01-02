@@ -574,4 +574,12 @@
 #define SET_7_HL_IND ((unsigned char) 0xFE)
 #define SET_7_A ((unsigned char) 0xFF)
 
+struct opcode {
+  const char* name;
+  unsigned char cb;
+};
+
+struct opcode* opcode_describe(unsigned char opcode);
+struct opcode* opcode_cb_describe(unsigned char opcode);
+
 #endif // __OPCODES_H_INCLUDED__
