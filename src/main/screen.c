@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "gbe.h"
 #include "screen.h"
 

@@ -1,16 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "SDL/SDL.h"
 
 #include "gbe.h"
 #include "cpu.h"
+#include "ppu.h"
 #include "screen.h"
 
-
 // From GameBoy-Online emulator
-const unsigned char BOOT_ROM[256] = {
+const unsigned char BOOT_ROM[] = {
   0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
   0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,
   0x47, 0x11, 0x04, 0x01, 0x21, 0x10, 0x80, 0x1A, 0xCD, 0x95, 0x00, 0xCD, 0x96, 0x00, 0x13, 0x7B,
@@ -26,41 +27,86 @@ const unsigned char BOOT_ROM[256] = {
   0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99, 0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC,
   0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E, 0x3C, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x3C,
   0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x00, 0x00, 0x23, 0x7D, 0xFE, 0x34, 0x20,
-  0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50
+  0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50,
+
+  // CART HEADER (4)
+  0x00, 0x00, 0x00, 0x00,
+
+  // NINTENDO DATA (48)
+  0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+  0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+  0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
+
+  // TITLE (16)
+  'S', 'U', 'P', 'E', 'R', ' ', 'M', 'A', 'R', 'I', 'O', 'L', 'A', 'N', 'D', '\0'
 };
 
+int timespec_subtract (struct timespec *result, struct timespec *x, struct timespec *y);
+
 int main(int argc, char* argv[]) {
-  if(SDL_Init(SDL_INIT_EVERYTHING) != 0)
+  if(SDL_Init(SDL_INIT_VIDEO) != 0)
     exit(ERR_SDL);
 
-  unsigned char memory[64*1024];
-  memcpy(memory, BOOT_ROM, sizeof(BOOT_ROM));
-
-  struct cpu cpu;
-  cpu_init(&cpu, memory);
+  struct memory memory;
+  memory_init(&memory);
+  memcpy(&memory.mem[0], BOOT_ROM, sizeof(BOOT_ROM));
 
   struct screen screen;
   screen_init(&screen, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  int working=1;
+  struct cpu cpu;
+  cpu_init(&cpu, &memory);
+
+  struct ppu ppu;
+  ppu_init(&ppu, &screen, &memory);
+
+  struct timespec then;
+  gbe_gettime(&then);
+
+  // nanoseconds per tick for a 4MHz clock
+  const int ticklen=1000000000/4000000;
+
+  int count=10000, working=1;
   while(working) {
     SDL_Event e;
-    while(SDL_PollEvent(&e)) {
-      switch(e.type) {
-      case SDL_QUIT:
-        working = 0;
-        break;
-      default:
-        // Ignore this for now
-        break;
-      }
-    }
 
-    screen_put_pixel(&screen, 40, 40, 0xFF, 0x00, 0x00);
+    if(count == 0) {
+      while(SDL_PollEvent(&e)) {
+        switch(e.type) {
+        case SDL_QUIT:
+          working = 0;
+          break;
+        default:
+          // Ignore this for now
+          break;
+        }
+      }
+      count = 10000;
+    }
+    else {
+      count = count-1;
+    }
 
     cpu_tick(&cpu);
 
-    screen_flip(&screen);
+    ppu_tick(&ppu);
+
+    /*
+    struct timespec now;
+    gbe_gettime(&now);
+
+    struct timespec elapsed;
+    timespec_subtract(&elapsed, &now, &then);
+    if(elapsed.tv_nsec < ticklen) {
+      struct timespec sleep;
+      sleep.tv_sec = 0;
+      sleep.tv_nsec = ticklen-elapsed.tv_nsec;
+      nanosleep(&sleep, NULL);
+    }
+    // printf("ELAPSED %d %d.%d\n", ticklen, elapsed.tv_sec, elapsed.tv_nsec);
+
+    gbe_gettime(&then);
+    //*/
   }
 
   screen_destroy(&screen);
@@ -68,4 +114,29 @@ int main(int argc, char* argv[]) {
   SDL_Quit();
 
   return 0;
+}
+
+/**
+ * @see https://www.gnu.org/software/libc/manual/html_node/Elapsed-Time.html
+ */
+int timespec_subtract (struct timespec *result, struct timespec *x, struct timespec *y) {
+  /* Perform the carry for the later subtraction by updating y. */
+  if (x->tv_nsec < y->tv_nsec) {
+    int nsec = (y->tv_nsec - x->tv_nsec) / 1000000000 + 1;
+    y->tv_nsec -= 1000000000 * nsec;
+    y->tv_sec += nsec;
+  }
+  if (x->tv_nsec - y->tv_nsec > 1000000000) {
+    int nsec = (x->tv_nsec - y->tv_nsec) / 1000000000;
+    y->tv_nsec += 1000000000 * nsec;
+    y->tv_sec -= nsec;
+  }
+
+  /* Compute the time remaining to wait.
+     tv_nsec is certainly positive. */
+  result->tv_sec = x->tv_sec - y->tv_sec;
+  result->tv_nsec = x->tv_nsec - y->tv_nsec;
+
+  /* Return 1 if result is negative. */
+  return x->tv_sec < y->tv_sec;
 }

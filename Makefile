@@ -1,9 +1,9 @@
 CC=gcc
 CXX=g++
-CFLAGS=-Iinclude/ -Wall -O0 `sdl-config --cflags`
+CFLAGS=-Iinclude/ -Wall -O0 `sdl-config --cflags` -g
 LDFLAGS=
 HEADERS=include/*.h 
-OBJECTS=cpu.o opcodes.o screen.o
+OBJECTS=cpu.o opcodes.o screen.o ppu.o mach.o memory.o
 TESTS=$(OBJECTS:.o=.to)
 LIBRARIES=`sdl-config --libs`
 TARGET=gbe
@@ -15,9 +15,12 @@ all: default
 default: $(TARGET)
 
 $(TARGET): $(OBJECTS) main.o
-	$(CC) $(OBJECTS) main.o $(LIBRARIES) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OBJECTS) main.o $(LIBRARIES) -o $(TARGET)
 
 %.o: src/main/%.c $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: src/main/platform/%.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.to: src/test/%-test.cpp $(HEADERS) $(OBJECTS)

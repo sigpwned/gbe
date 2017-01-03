@@ -34,12 +34,6 @@ void cpu_set_r8(struct cpu* cpu, int ri, unsigned char v);
 unsigned short cpu_get_r16(struct cpu* cpu, int ri);
 void cpu_set_r16(struct cpu* cpu, int ri, unsigned short v);
 
-unsigned char cpu_get_m8(struct cpu* cpu, int mi);
-void cpu_set_m8(struct cpu* cpu, int mi, unsigned char v);
-
-unsigned short cpu_get_m16(struct cpu* cpu, int mi);
-void cpu_set_m16(struct cpu* cpu, int mi, unsigned short v);
-
 void cpu_adc_r8(struct cpu* cpu, int rb);
 void cpu_adc_d8(struct cpu* cpu, unsigned char d8);
 void cpu_adc_ind8(struct cpu* cpu);
@@ -129,7 +123,7 @@ void cpu_srl_ind8(struct cpu* cpu);
 void cpu_rst_addr(struct cpu* cpu, unsigned short addr);
 
 // LIFECYCLE ///////////////////////////////////////////////////////////////////
-void cpu_init(struct cpu* cpu, unsigned char* memory) {
+void cpu_init(struct cpu* cpu, struct memory* memory) {
   memset(cpu, 0, sizeof(struct cpu));
   cpu->memory = memory;
 }
@@ -137,16 +131,12 @@ void cpu_init(struct cpu* cpu, unsigned char* memory) {
 void cpu_tick_cb(struct cpu* cpu);
 
 void cpu_tick(struct cpu* cpu) {
-#ifdef GBE_DEBUG
-  fprintf(stderr, "BUSY %d\n", cpu->busy);
-#endif
-
   if(cpu->busy <= 1) {
-    unsigned char opcode=cpu->memory[cpu->regs.pc++];
+    unsigned char opcode=memory_get_d8(cpu->memory, cpu->regs.pc++);
 
 #ifdef GBE_DEBUG
   struct opcode* d=opcode_describe(opcode);
-  fprintf(stderr, "PC %5d %s\n", cpu->regs.pc-1, d->name);
+  fprintf(stderr, "PC %04x %s\n", cpu->regs.pc-1, d->name);
 #endif
 
     switch(opcode) {
@@ -175,7 +165,7 @@ void cpu_tick(struct cpu* cpu) {
   
     case ADC_A_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_adc_d8(cpu, d8);
       } break;
     case ADC_A_HL_IND:
@@ -207,7 +197,7 @@ void cpu_tick(struct cpu* cpu) {
   
     case ADD_A_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_add8_d8(cpu, d8);
       } break;
     case ADD_A_HL_IND:
@@ -231,7 +221,7 @@ void cpu_tick(struct cpu* cpu) {
   
     case ADD_SP_R8:
       {
-        signed char d8=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d8=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_add16_sp(cpu, d8);
       } break;
   
@@ -261,7 +251,7 @@ void cpu_tick(struct cpu* cpu) {
   
     case AND_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_and_d8(cpu, d8);
       } break;
     case AND_HL_IND:
@@ -271,39 +261,44 @@ void cpu_tick(struct cpu* cpu) {
     // CALL //////////////////////////////////////////////////////////////////////
     case CALL_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
-        unsigned short p=UCS_TO_US(h, l);
-        cpu->memory[--cpu->regs.sp] = h;
-        cpu->memory[--cpu->regs.sp] = l;
-        cpu->regs.pc = p;
+        unsigned char fl=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char fh=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned short fp=UCS_TO_US(fh, fl);
+
+        unsigned char pcl=US_TO_LUC(cpu->regs.pc);
+        unsigned char pch=US_TO_HUC(cpu->regs.pc);
+        memory_set_d8(cpu->memory, --cpu->regs.sp, pch);
+        memory_set_d8(cpu->memory, --cpu->regs.sp, pcl);
+
+        cpu->regs.pc = fp;
+
         cpu->busy = 24;
       } break;
     case CALL_C_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         cpu_call_cond(cpu, p, CF, CF);
       } break;
     case CALL_NC_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         cpu_call_cond(cpu, p, CF, 0);
       } break;
     case CALL_Z_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         cpu_call_cond(cpu, p, ZF, ZF);
       } break;
     case CALL_NZ_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         cpu_call_cond(cpu, p, ZF, 0);
       } break;
@@ -362,7 +357,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case CP_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_cp_d8(cpu, d8);
       } break;
     case CP_A_HL_IND:
@@ -464,8 +459,8 @@ void cpu_tick(struct cpu* cpu) {
     // JUMP //////////////////////////////////////////////////////////////////////
     case JP_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         cpu->regs.pc = p;
         cpu->busy = 16;
@@ -478,8 +473,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JP_C_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&CF) != 0) {
           cpu->regs.pc = p;
@@ -491,8 +486,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JP_NC_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&CF) == 0) {
           cpu->regs.pc = p;
@@ -504,8 +499,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JP_Z_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&ZF) != 0) {
           cpu->regs.pc = p;
@@ -517,8 +512,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JP_NZ_A16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&ZF) == 0) {
           cpu->regs.pc = p;
@@ -530,13 +525,13 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JR_R8:
       {
-        signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu->regs.pc += d;
         cpu->busy = 12;
       } break;
     case JR_C_R8:
       {
-        signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         if((cpu_get_r8(cpu, RF)&CF) != 0) {
           cpu->regs.pc += d;
           cpu->busy = 12;
@@ -547,7 +542,7 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JR_NC_R8:
       {
-        signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         if((cpu_get_r8(cpu, RF)&CF) == 0) {
           cpu->regs.pc += d;
           cpu->busy = 12;
@@ -558,7 +553,7 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JR_Z_R8:
       {
-        signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         if((cpu_get_r8(cpu, RF)&ZF) != 0) {
           cpu->regs.pc += d;
           cpu->busy = 12;
@@ -569,7 +564,7 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case JR_NZ_R8:
       {
-        signed char d=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         if((cpu_get_r8(cpu, RF)&ZF) == 0) {
           cpu->regs.pc += d;
           cpu->busy = 12;
@@ -583,32 +578,32 @@ void cpu_tick(struct cpu* cpu) {
     case LDH_A8_IND_A:
       {
         unsigned char a=cpu_get_r8(cpu, RA);
-        unsigned char n=cpu->memory[cpu->regs.pc++];
-        cpu->memory[0xFF00+n] = a;
+        unsigned char n=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        memory_set_d8(cpu->memory, 0xFF00+n, a);
         cpu->busy = 12;
       } break;
     case LDH_A_A8_IND:
       {
-        unsigned char n=cpu->memory[cpu->regs.pc++];
-        unsigned char t=cpu->memory[0xFF00+n];
+        unsigned char n=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char t=memory_get_d8(cpu->memory, 0xFF00+n);
         cpu_set_r8(cpu, RA, t);
         cpu->busy = 12;
       } break;
     case LD_A16_IND_A:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
         unsigned char a=cpu_get_r8(cpu, RA);
-        cpu->memory[p] = a;
+        memory_set_d8(cpu->memory, p, a);
         cpu->busy = 16;
       } break;
     case LD_A_A16_IND:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=UCS_TO_US(h, l);
-        unsigned char t=cpu->memory[p];
+        unsigned char t=memory_get_d8(cpu->memory, p);
         cpu_set_r8(cpu, RA, t);
         cpu->busy = 16;
       } break;
@@ -636,7 +631,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_A_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RA, d8);
       } break;
     case LD_A_HL_IND:
@@ -652,16 +647,15 @@ void cpu_tick(struct cpu* cpu) {
     case LD_A_HL_IND_MINUS:
       {
         unsigned short hl=cpu_get_r16(cpu, RHL);
-        hl = hl-1;
-        unsigned char a=cpu->memory[hl];
+        unsigned char a=memory_get_d8(cpu->memory, hl);
         cpu_set_r8(cpu, RA, a);
-        cpu_set_r16(cpu, RHL, hl);
+        cpu_set_r16(cpu, RHL, hl-1);
         cpu->busy = 8;
       } break;
     case LD_A_HL_IND_PLUS:
       {
         unsigned short hl=cpu_get_r16(cpu, RHL);
-        unsigned char a=cpu->memory[hl];
+        unsigned char a=memory_get_d8(cpu->memory, hl);
         cpu_set_r8(cpu, RA, a);
         hl = hl+1;
         cpu_set_r16(cpu, RHL, hl);
@@ -691,7 +685,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_B_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RB, d8);
       } break;
     case LD_B_HL_IND:
@@ -721,7 +715,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_C_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RC, d8);
       } break;
     case LD_C_HL_IND:
@@ -751,7 +745,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_D_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RD, d8);
       } break;
     case LD_D_HL_IND:
@@ -781,7 +775,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_E_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RE, d8);
       } break;
     case LD_E_HL_IND:
@@ -811,7 +805,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_H_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RH, d8);
       } break;
     case LD_H_HL_IND:
@@ -841,7 +835,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_L_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_r8_d8(cpu, RL, d8);
       } break;
     case LD_L_HL_IND:
@@ -852,37 +846,37 @@ void cpu_tick(struct cpu* cpu) {
       {
         unsigned char a=cpu_get_r8(cpu, RA);
         unsigned char c=cpu_get_r8(cpu, RC);
-        cpu->memory[0xFF00+c] = a;
+        memory_set_d8(cpu->memory, 0xFF00+c, a);
         cpu->busy = 8;
       } break;
     case LD_A_C_IND:
       {
         unsigned char c=cpu_get_r8(cpu, RC);
-        unsigned char t=cpu->memory[0xFF00+c];
+        unsigned char t=memory_get_d8(cpu->memory, 0xFF00+c);
         cpu_set_r8(cpu, RA, t);
         cpu->busy = 8;
       } break;
   
     case LD_BC_D16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short d16=UCS_TO_US(h, l);
         cpu_set_r16(cpu, RBC, d16);
         cpu->busy = 12;
       } break;
     case LD_DE_D16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short d16=UCS_TO_US(h, l);
         cpu_set_r16(cpu, RDE, d16);
         cpu->busy = 12;
       } break;
     case LD_HL_D16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short d16=UCS_TO_US(h, l);
         cpu_set_r16(cpu, RHL, d16);
         cpu->busy = 12;
@@ -910,14 +904,14 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case LD_HL_IND_D8:
       {
-        unsigned char a=cpu->memory[cpu->regs.pc++];
+        unsigned char a=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short p=cpu_get_r16(cpu, RHL);
-        cpu->memory[p] = a;
+        memory_set_d8(cpu->memory, p, a);
         cpu->busy = 12;
       } break;
     case LD_HL_SP_PLUS_R8:
       {
-        signed char d8=(signed char) cpu->memory[cpu->regs.pc++];
+        signed char d8=(signed char) memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_ld_hl_spd8(cpu, d8);
         cpu->busy = 12;
       } break;
@@ -933,17 +927,16 @@ void cpu_tick(struct cpu* cpu) {
     case LD_HL_IND_MINUS_A:
       {
         unsigned short hl=cpu_get_r16(cpu, RHL);
-        hl = hl-1;
         unsigned char a=cpu_get_r8(cpu, RA);
-        cpu->memory[hl] = a;
-        cpu_set_r16(cpu, RHL, hl);
+        memory_set_d8(cpu->memory, hl, a);
+        cpu_set_r16(cpu, RHL, hl-1);
         cpu->busy = 8;
       } break;
     case LD_HL_IND_PLUS_A:
       {
         unsigned short hl=cpu_get_r16(cpu, RHL);
         unsigned char a=cpu_get_r8(cpu, RA);
-        cpu->memory[hl] = a;
+        memory_set_d8(cpu->memory, hl, a);
         hl = hl+1;
         cpu_set_r16(cpu, RHL, hl);
         cpu->busy = 8;
@@ -951,8 +944,8 @@ void cpu_tick(struct cpu* cpu) {
   
     case LD_SP_D16:
       {
-        unsigned char l=cpu->memory[cpu->regs.pc++];
-        unsigned char h=cpu->memory[cpu->regs.pc++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.pc++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short d16=UCS_TO_US(h, l);
         cpu->regs.sp = d16;
         cpu->busy = 12;
@@ -994,7 +987,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case OR_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_or_d8(cpu, d8);
       } break;
     case OR_HL_IND:
@@ -1037,16 +1030,16 @@ void cpu_tick(struct cpu* cpu) {
     // RETURN ////////////////////////////////////////////////////////////////////
     case RET:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         cpu->regs.pc = p;
         cpu->busy = 16;
       } break;
     case RET_C:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&CF) != 0) {
           cpu->regs.pc = p;
@@ -1058,8 +1051,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case RET_NC:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&CF) == 0) {
           cpu->regs.pc = p;
@@ -1071,8 +1064,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case RET_Z:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&ZF) != 0) {
           cpu->regs.pc = p;
@@ -1084,8 +1077,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case RET_NZ:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         if((cpu_get_r8(cpu, RF)&ZF) == 0) {
           cpu->regs.pc = p;
@@ -1097,8 +1090,8 @@ void cpu_tick(struct cpu* cpu) {
       } break;
     case RETI:
       {
-        unsigned char l=cpu->memory[cpu->regs.sp++];
-        unsigned char h=cpu->memory[cpu->regs.sp++];
+        unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+        unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
         unsigned short p=UCS_TO_US(h, l);
         cpu->regs.pc = p;
         cpu->ime = 1;
@@ -1169,7 +1162,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case SBC_A_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_sbc_d8(cpu, d8);
       } break;
     case SBC_A_HL_IND:
@@ -1210,7 +1203,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case SUB_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_sub_d8(cpu, d8);
       } break;
     case SUB_HL_IND:
@@ -1241,7 +1234,7 @@ void cpu_tick(struct cpu* cpu) {
       break;
     case XOR_D8:
       {
-        unsigned char d8=cpu->memory[cpu->regs.pc++];
+        unsigned char d8=memory_get_d8(cpu->memory, cpu->regs.pc++);
         cpu_xor_d8(cpu, d8);
       } break;
     case XOR_A_HL_IND:
@@ -1259,7 +1252,7 @@ void cpu_tick(struct cpu* cpu) {
 }
 
 void cpu_tick_cb(struct cpu* cpu) {
-  unsigned char opcode=cpu->memory[cpu->regs.pc++];
+  unsigned char opcode=memory_get_d8(cpu->memory, cpu->regs.pc++);
 
 #ifdef GBE_DEBUG
   struct opcode* d=opcode_cb_describe(opcode);
@@ -2229,29 +2222,6 @@ void cpu_set_r16(struct cpu* cpu, int ri, unsigned short v) {
   cpu_set_r8(cpu, ri+1, h);
 }
 
-// MEMORY //////////////////////////////////////////////////////////////////////
-unsigned char cpu_get_m8(struct cpu* cpu, int mi) {
-  return cpu->memory[mi];
-}
-
-void cpu_set_m8(struct cpu* cpu, int mi, unsigned char v) {
-  cpu->memory[mi] = v;
-}
-
-unsigned short cpu_get_m16(struct cpu* cpu, int mi) {
-  // The GameBoy CPU architecture is Little-Endian!
-  unsigned char l=cpu_get_m8(cpu, mi+0);
-  unsigned char h=cpu_get_m8(cpu, mi+1);
-  return UCS_TO_US(h, l);
-}
-
-void cpu_set_m16(struct cpu* cpu, int mi, unsigned short v) {
-  unsigned char l=US_TO_LUC(v);
-  unsigned char h=US_TO_HUC(v);
-  cpu_set_m8(cpu, mi+0, l);
-  cpu_set_m8(cpu, mi+1, h);
-}
-
 // INSTRUCTIONS ////////////////////////////////////////////////////////////////
 //// ADC ///////////////////////////////////////////////////////////////////////
 void cpu_adc_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned int t) {
@@ -2288,7 +2258,7 @@ void cpu_adc_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_adc_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   unsigned int t=a+b;
   if(cpu_get_r8(cpu, RF) & CF)
     t = t+1;
@@ -2328,7 +2298,7 @@ void cpu_add8_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_add8_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   unsigned int t=a+b;
   cpu_set_r8(cpu, RA, (unsigned char) t);
   cpu_add8_flags(cpu, a, b, t);
@@ -2409,7 +2379,7 @@ void cpu_and_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_and_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   unsigned char t=a & b;
   cpu_set_r8(cpu, RA, t);
   cpu_and_flags(cpu, a, b, t);
@@ -2420,9 +2390,14 @@ void cpu_and_ind8(struct cpu* cpu) {
 void cpu_call_cond(struct cpu* cpu, unsigned short p, unsigned char mask, unsigned char test) {
   unsigned char f=cpu_get_r8(cpu, RF);
   if((f & mask) == test) {
-    cpu->memory[--cpu->regs.sp] = US_TO_HUC(cpu->regs.pc);
-    cpu->memory[--cpu->regs.sp] = US_TO_LUC(cpu->regs.pc);
+    unsigned char pcl=US_TO_LUC(cpu->regs.pc);
+    unsigned char pch=US_TO_HUC(cpu->regs.pc);
+
+    memory_set_d8(cpu->memory, --cpu->regs.sp, pch);
+    memory_set_d8(cpu->memory, --cpu->regs.sp, pcl);
+
     cpu->regs.pc = p;
+
     cpu->busy = 24;
   }
   else {
@@ -2456,7 +2431,7 @@ void cpu_cp_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_cp_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   cpu_cp_flags(cpu, a, b);
   cpu->busy = 8;
 }
@@ -2465,7 +2440,7 @@ void cpu_cp_ind8(struct cpu* cpu) {
 void cpu_dec8_flags(struct cpu* cpu, unsigned char a, signed int t) {
   unsigned int carries=(t ^ 0x1FF) ^ a ^ ((signed char) -1);
   unsigned char f=cpu_get_r8(cpu, RF);
-  unsigned char z=a==0 ? ZF : 0;
+  unsigned char z=t==0 ? ZF : 0;
   unsigned char n=NF;
   unsigned char h=carries & 0x10 ? HF : 0;
   unsigned char c=f & CF;
@@ -2482,9 +2457,9 @@ void cpu_dec8_r8(struct cpu* cpu, int rb) {
 
 void cpu_dec8_ind8(struct cpu* cpu) {
   unsigned short hl=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[hl];
+  unsigned char a=memory_get_d8(cpu->memory, hl);
   signed int t=a-1;
-  cpu->memory[hl] = (unsigned char) t;
+  memory_set_d8(cpu->memory, hl, (unsigned char) t);
   cpu_dec8_flags(cpu, a, t);
   cpu->busy = 12;
 }
@@ -2513,7 +2488,7 @@ void cpu_dec16_sp(struct cpu* cpu) {
 void cpu_inc8_flags(struct cpu* cpu, unsigned char a, unsigned int t) {
   unsigned int carries=t ^ a ^ ((unsigned char) +1);
   unsigned char f=cpu_get_r8(cpu, RF);
-  unsigned char z=a==0 ? ZF : 0;
+  unsigned char z=t==0 ? ZF : 0;
   unsigned char n=0;
   unsigned char h=carries & 0x10 ? HF : 0;
   unsigned char c=f & CF;
@@ -2530,9 +2505,9 @@ void cpu_inc8_r8(struct cpu* cpu, int rb) {
 
 void cpu_inc8_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned int t=a+1;
-  cpu->memory[p] = (unsigned char) t;
+  memory_set_d8(cpu->memory, p, (unsigned char) t);
   cpu_inc8_flags(cpu, a, t);
   cpu->busy = 12;
 }
@@ -2572,7 +2547,7 @@ void cpu_ld_r8_d8(struct cpu* cpu, int ri, unsigned char d8) {
 
 void cpu_ld_r8_ind8(struct cpu* cpu, int ra, int rb) {
   unsigned short p=cpu_get_r16(cpu, rb);
-  unsigned char t=cpu->memory[p];
+  unsigned char t=memory_get_d8(cpu->memory, p);
   cpu_set_r8(cpu, ra, t);
   cpu->busy = 8;
 }
@@ -2580,7 +2555,7 @@ void cpu_ld_r8_ind8(struct cpu* cpu, int ra, int rb) {
 void cpu_ld_ind8_r8(struct cpu* cpu, int ra, int rb) {
   unsigned char a=cpu_get_r8(cpu, rb);
   unsigned short p=cpu_get_r16(cpu, ra);
-  cpu->memory[p] = a;
+  memory_set_d8(cpu->memory, p, a);
   cpu->busy = 8;
 }
 
@@ -2631,7 +2606,7 @@ void cpu_or_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_or_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   unsigned char t=a | b;
   cpu_set_r8(cpu, RA, t);
   cpu_or_flags(cpu, a, b, t);
@@ -2643,16 +2618,16 @@ void cpu_push_r16(struct cpu* cpu, int ri) {
   unsigned char l=cpu_get_r8(cpu, ri+0);
   unsigned char h=cpu_get_r8(cpu, ri+1);
 
-  cpu->memory[--cpu->regs.sp] = h;
-  cpu->memory[--cpu->regs.sp] = l;
+  memory_set_d8(cpu->memory, --cpu->regs.sp, h);
+  memory_set_d8(cpu->memory, --cpu->regs.sp, l);
 
   cpu->busy = 16;
 }
 
 //// POP ///////////////////////////////////////////////////////////////////////
 void cpu_pop_r16(struct cpu* cpu, int ri) {
-  unsigned char l=cpu->memory[cpu->regs.sp++];
-  unsigned char h=cpu->memory[cpu->regs.sp++];
+  unsigned char l=memory_get_d8(cpu->memory, cpu->regs.sp++);
+  unsigned char h=memory_get_d8(cpu->memory, cpu->regs.sp++);
 
   cpu_set_r8(cpu, ri+0, l);
   cpu_set_r8(cpu, ri+1, h);
@@ -2695,7 +2670,7 @@ void cpu_sbc_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_sbc_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   signed int t=a-b;
   if(cpu_get_r8(cpu, RF) & CF)
     t = t-1;
@@ -2735,7 +2710,7 @@ void cpu_sub_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_sub_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   signed int t=a-b;
   cpu_set_r8(cpu, RA, (unsigned char) t);
   cpu_sub_flags(cpu, a, b, t);
@@ -2772,7 +2747,7 @@ void cpu_xor_d8(struct cpu* cpu, unsigned char d8) {
 void cpu_xor_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
   unsigned char a=cpu_get_r8(cpu, RA);
-  unsigned char b=cpu->memory[p];
+  unsigned char b=memory_get_d8(cpu->memory, p);
   unsigned char t=a ^ b;
   cpu_set_r8(cpu, RA, t);
   cpu_xor_flags(cpu, a, b, t);
@@ -2784,8 +2759,8 @@ void cpu_rst_addr(struct cpu* cpu, unsigned short addr) {
   unsigned char l=US_TO_LUC(cpu->regs.pc);
   unsigned char h=US_TO_HUC(cpu->regs.pc);
 
-  cpu->memory[--cpu->regs.sp] = h;
-  cpu->memory[--cpu->regs.sp] = l;
+  memory_set_d8(cpu->memory, --cpu->regs.sp, h);
+  memory_set_d8(cpu->memory, --cpu->regs.sp, l);
   
   cpu->regs.pc = addr;
 
@@ -2815,7 +2790,7 @@ void cpu_rr_r8(struct cpu* cpu, int ri) {
 void cpu_rr_ind8(struct cpu* cpu) {
   unsigned char f=cpu_get_r8(cpu, RF);
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
 
   unsigned char t=a >> 1;
   if(f & CF)
@@ -2826,7 +2801,7 @@ void cpu_rr_ind8(struct cpu* cpu) {
   unsigned char n=0;
   unsigned char c=a&0x01 ? CF : 0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | h | n | c);
 
   cpu->busy = 16;
@@ -2856,7 +2831,7 @@ void cpu_rrc_r8(struct cpu* cpu, int ri) {
 
 void cpu_rrc_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
 
   unsigned char c;
   unsigned char t=a >> 1;
@@ -2871,7 +2846,7 @@ void cpu_rrc_ind8(struct cpu* cpu) {
   unsigned char h=0;
   unsigned char n=0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | h | n | c);
 
   cpu->busy = 16;
@@ -2899,7 +2874,7 @@ void cpu_rl_r8(struct cpu* cpu, int ri) {
 
 void cpu_rl_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char f=cpu_get_r8(cpu, RF);
 
   unsigned char t=a << 1;
@@ -2911,7 +2886,7 @@ void cpu_rl_ind8(struct cpu* cpu) {
   unsigned char n=0;
   unsigned char c=a&0x80 ? CF : 0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | h | n | c);
 
   cpu->busy = 16;
@@ -2941,7 +2916,7 @@ void cpu_rlc_r8(struct cpu* cpu, int ri) {
 
 void cpu_rlc_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
 
   unsigned char c;
   unsigned char t=a << 1;
@@ -2956,7 +2931,7 @@ void cpu_rlc_ind8(struct cpu* cpu) {
   unsigned char h=0;
   unsigned char n=0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | h | n | c);
 
   cpu->busy = 16;
@@ -2980,7 +2955,7 @@ void cpu_bit_r8_n(struct cpu* cpu, int ri, int bi) {
 
 void cpu_bit_ind8_n(struct cpu* cpu, int bi) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char m=1 << bi;
   unsigned char f=cpu_get_r8(cpu, RF);
 
@@ -3003,9 +2978,9 @@ void cpu_set_r8_n(struct cpu* cpu, int ri, int bi) {
 
 void cpu_set_ind8_n(struct cpu* cpu, int bi) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char m=1 << bi;
-  cpu->memory[p] = a | m;
+  memory_set_d8(cpu->memory, p, a | m);
   cpu->busy = 16;
 }
 
@@ -3018,9 +2993,9 @@ void cpu_res_r8_n(struct cpu* cpu, int ri, int bi) {
 
 void cpu_res_ind8_n(struct cpu* cpu, int bi) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char m=1 << bi;
-  cpu->memory[p] = a & ~m;
+  memory_set_d8(cpu->memory, p, a & ~m);
   cpu->busy = 16;
 }
 
@@ -3040,14 +3015,14 @@ void cpu_swap_r8(struct cpu* cpu, int ri) {
 
 void cpu_swap_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char al=a & 0x0F;
   unsigned char ah=a & 0xF0;
   unsigned char t=(al << 4) | (ah >> 4);
 
   unsigned char z=t ? 0 : ZF;
   
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z);
 
   cpu->busy = 16;
@@ -3070,7 +3045,7 @@ void cpu_sla_r8(struct cpu* cpu, int ri) {
 
 void cpu_sla_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char t=a << 1;
   
   unsigned char z=t ? 0 : ZF;
@@ -3078,7 +3053,7 @@ void cpu_sla_ind8(struct cpu* cpu) {
   unsigned char h=0;
   unsigned char c=a & 0x80 ? CF : 0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | n | h | c);
 
   cpu->busy = 16;
@@ -3103,7 +3078,7 @@ void cpu_sra_r8(struct cpu* cpu, int ri) {
 
 void cpu_sra_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char t=a >> 1;
   if(a & 0x80)
     t |= 0x80;
@@ -3113,7 +3088,7 @@ void cpu_sra_ind8(struct cpu* cpu) {
   unsigned char h=0;
   unsigned char c=a & 0x01 ? CF : 0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | n | h | c);
 
   cpu->busy = 16;
@@ -3136,7 +3111,7 @@ void cpu_srl_r8(struct cpu* cpu, int ri) {
 
 void cpu_srl_ind8(struct cpu* cpu) {
   unsigned short p=cpu_get_r16(cpu, RHL);
-  unsigned char a=cpu->memory[p];
+  unsigned char a=memory_get_d8(cpu->memory, p);
   unsigned char t=a >> 1;
   
   unsigned char z=t ? 0 : ZF;
@@ -3144,7 +3119,7 @@ void cpu_srl_ind8(struct cpu* cpu) {
   unsigned char h=0;
   unsigned char c=a & 0x01 ? CF : 0;
 
-  cpu->memory[p] = t;
+  memory_set_d8(cpu->memory, p, t);
   cpu_set_r8(cpu, RF, z | n | h | c);
 
   cpu->busy = 16;

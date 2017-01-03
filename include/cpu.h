@@ -1,6 +1,8 @@
 #ifndef __CPU_H_INCLUDED__
 #define __CPU_H_INCLUDED__
 
+#include "memory.h"
+
 #ifdef __cplusplus 
 extern "C" {
 #endif
@@ -13,7 +15,7 @@ struct registers {
 
 struct cpu {
   struct registers regs;
-  unsigned char* memory;
+  struct memory* memory;
   unsigned char busy;
   unsigned char ime;
   unsigned char halted;
@@ -21,7 +23,7 @@ struct cpu {
 };
 
 // LIFECYLE ////////////////////////////////////////////////////////////////////
-void cpu_init(struct cpu* p, unsigned char* memory);
+void cpu_init(struct cpu* p, struct memory* memory);
 
 void cpu_tick(struct cpu* p);
 
