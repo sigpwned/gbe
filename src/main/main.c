@@ -41,7 +41,7 @@ const unsigned char BOOT_ROM[] = {
   'S', 'U', 'P', 'E', 'R', ' ', 'M', 'A', 'R', 'I', 'O', 'L', 'A', 'N', 'D', '\0'
 };
 
-int timespec_subtract (struct timespec *result, struct timespec *x, struct timespec *y);
+int timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y);
 
 int main(int argc, char* argv[]) {
   if(SDL_Init(SDL_INIT_VIDEO) != 0)

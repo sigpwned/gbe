@@ -1,10 +1,10 @@
 CC=gcc
 CXX=g++
-CFLAGS=-Iinclude/ -Wall -O0 `sdl-config --cflags` -g
+CFLAGS=-Iinclude/ -Wall -O2 `sdl-config --cflags` -g
 LDFLAGS=
 HEADERS=include/*.h 
 OBJECTS=cpu.o opcodes.o screen.o ppu.o mach.o memory.o
-TESTS=$(OBJECTS:.o=.to)
+TESTS=$(OBJECTS:.o=-test.o)
 LIBRARIES=`sdl-config --libs`
 TARGET=gbe
 
@@ -23,7 +23,7 @@ $(TARGET): $(OBJECTS) main.o
 %.o: src/main/platform/%.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.to: src/test/%-test.cpp $(HEADERS) $(OBJECTS)
+%-test.o: src/test/%-test.cpp $(HEADERS) $(OBJECTS)
 	$(CXX) $(CFLAGS) $(LIBRARIES) -lboost_unit_test_framework $(OBJECTS) $< -o $@
 	./$@ --log_level=test_suite
 
@@ -31,7 +31,6 @@ test: $(TESTS)
 
 clean:
 	rm -f *.o
-	rm -f *.to
 	rm -f $(TARGET)
 
 

@@ -8,10 +8,11 @@ BOOST_AUTO_TEST_SUITE(cputest)
 
 BOOST_AUTO_TEST_CASE(reg_af_test)
 {
-  unsigned char memory[64*1024];
+  struct memory memory;
+  memory_init(&memory);
 
   struct cpu cpu;
-  cpu_init(&cpu, memory);
+  cpu_init(&cpu, &memory);
 
   BOOST_CHECK(cpu_get_a(&cpu) == 0);
   BOOST_CHECK(cpu_get_f(&cpu) == 0);
@@ -27,7 +28,8 @@ BOOST_AUTO_TEST_CASE(reg_af_test)
 
 BOOST_AUTO_TEST_CASE(program_1)
 {
-  unsigned char memory[64*1024];
+  struct memory memory;
+  memory_init(&memory);
 
   unsigned char program[]={
     LD_A_D8, 0x17,
@@ -42,7 +44,7 @@ BOOST_AUTO_TEST_CASE(program_1)
   memcpy(memory, program, sizeof(program));
 
   struct cpu cpu;
-  cpu_init(&cpu, memory);
+  cpu_init(&cpu, &memory);
 
   BOOST_CHECK(cpu_get_a(&cpu) == 0);
 
