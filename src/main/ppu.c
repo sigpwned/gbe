@@ -62,9 +62,13 @@ void ppu_tick(struct ppu* ppu) {
         unsigned char b2=memory_get_d8(ppu->memory, tpoff+2*py+1);
         unsigned char mx=1 << (7 - px);
         
-        unsigned char c=(b1 & mx ? 1 : 0) | (b2 & mx ? 2 : 0);
+        unsigned char c1=(b1 & mx ? 1 : 0) | (b2 & mx ? 2 : 0);
 
-        unsigned char color=c ? 0x00 : 0xFF;
+        unsigned char palette=memory_get_d8(ppu->memory, BG_PALETTE);
+
+        unsigned char c2=(palette & (3 << (2*c1))) >> (2*c1);
+
+        unsigned char color=255-85*c2;
         
         screen_put_pixel(ppu->screen, ppu->x, ppu->y, color, color, color);
   

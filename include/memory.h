@@ -66,4 +66,11 @@ void memory_set_d8(struct memory* mem, unsigned short offset, unsigned char valu
 #define LY ((unsigned short) 0xFF44)
 #define LYC ((unsigned short) 0xFF45)
 
+// PALETTE /////////////////////////////////////////////////////////////////////
+#define BG_PALETTE ((unsigned short) 0xFF47)
+#define BG_PALETTE_00 ((unsigned char) 0x03)
+#define BG_PALETTE_01 ((unsigned char) 0x0C)
+#define BG_PALETTE_10 ((unsigned char) 0x30)
+#define BG_PALETTE_11 ((unsigned char) 0xC0)
+
 #endif // __MEMORY_H_INCLUDED__
