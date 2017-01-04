@@ -27,37 +27,50 @@ const unsigned char BOOT_ROM[] = {
   0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99, 0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC,
   0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E, 0x3C, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x3C,
   0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x00, 0x00, 0x23, 0x7D, 0xFE, 0x34, 0x20,
-  0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50,
-
-  // CART HEADER (4)
-  0x00, 0x00, 0x00, 0x00,
-
-  // NINTENDO DATA (48)
-  0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
-  0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
-  0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
-
-  // TITLE (16)
-  'T', 'E', 'S', 'T', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'
+  0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50
 };
 
-int timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y);
+void timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y);
+
+int gbe_read_fully(FILE* fp, unsigned char* offset, size_t length);
+
+int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
+
+struct memory memory;
+
+struct screen screen;
+
+struct cpu cpu;
+
+struct ppu ppu;
+
+FILE* cartridge;
 
 int main(int argc, char* argv[]) {
+  if(argc != 2) {
+    fprintf(stderr, "usage: gbe <cartridge>\n");
+    exit(0);
+  }
+
+  const char* cartridge_filename=argv[1];
+
+  cartridge = fopen(cartridge_filename, "r");
+  if(cartridge == NULL)
+    exit(ERR_BAD_CARTRIDGE);
+
   if(SDL_Init(SDL_INIT_VIDEO) != 0)
     exit(ERR_SDL);
 
-  struct memory memory;
   memory_init(&memory);
   memcpy(&memory.mem[0], BOOT_ROM, sizeof(BOOT_ROM));
+  fseek(cartridge, 256, SEEK_SET);
+  gbe_read_fully(cartridge, &memory.mem[256], 32768-256);
+  memory_register_set_hook(&memory, gbe_map_cartridge_rom);
 
-  struct screen screen;
   screen_init(&screen, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  struct cpu cpu;
   cpu_init(&cpu, &memory);
 
-  struct ppu ppu;
   ppu_init(&ppu, &screen, &memory);
 
   struct timespec then;
@@ -73,8 +86,10 @@ int main(int argc, char* argv[]) {
 
     ppu_tick(&ppu);
 
-    unsigned char stat=memory_get_d8(&memory, STAT);
-    if((stat&STAT_MODE)==STAT_MODE_01 && ppu.busy==1) {
+    
+    // unsigned char stat=memory_get_d8(&memory, STAT);
+    // if((stat&STAT_MODE)==STAT_MODE_01 && ppu.busy==1) {
+    if(ppu.y==153 && ppu.busy==1) {
       // We're at the tail end of a vblank.
 
       // Worship at the SDL altar
@@ -96,7 +111,7 @@ int main(int argc, char* argv[]) {
       struct timespec elapsed;
       timespec_subtract(&elapsed, &now, &then);
       
-      if(elapsed.tv_nsec < vblanklen) {
+      if(elapsed.tv_sec==0 && elapsed.tv_nsec<vblanklen) {
         struct timespec sleep;
         sleep.tv_sec = 0;
         sleep.tv_nsec = vblanklen-elapsed.tv_nsec;
@@ -114,27 +129,42 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
+int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8) {
+  int result;
+
+  if(offset == MAP_CARTRIDGE) {
+    // This write means to swap out the cartridge ROM!
+    fseek(cartridge, 0, SEEK_SET);
+    gbe_read_fully(cartridge, &mem->mem[0], 256);
+    fclose(cartridge);
+    memory_unregister_set_hook(mem, gbe_map_cartridge_rom);
+    result = MEMORY_HOOK_RESULT;
+  }
+  else {
+    result = 0;
+  }
+
+  return result;
+}
+
 /**
- * @see https://www.gnu.org/software/libc/manual/html_node/Elapsed-Time.html
+ * @see https://gist.github.com/diabloneo/9619917
  */
-int timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y) {
-  /* Perform the carry for the later subtraction by updating y. */
-  if (x->tv_nsec < y->tv_nsec) {
-    int nsec = (y->tv_nsec - x->tv_nsec) / 1000000000 + 1;
-    y->tv_nsec -= 1000000000 * nsec;
-    y->tv_sec += nsec;
+void timespec_subtract(struct timespec *result, struct timespec *stop, struct timespec *start) {
+  if ((stop->tv_nsec - start->tv_nsec) < 0) {
+    result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+    result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+  } else {
+    result->tv_sec = stop->tv_sec - start->tv_sec;
+    result->tv_nsec = stop->tv_nsec - start->tv_nsec;
   }
-  if (x->tv_nsec - y->tv_nsec > 1000000000) {
-    int nsec = (x->tv_nsec - y->tv_nsec) / 1000000000;
-    y->tv_nsec += 1000000000 * nsec;
-    y->tv_sec -= nsec;
+}
+
+int gbe_read_fully(FILE* fp, unsigned char* offset, size_t length) {
+  size_t total=0;
+  while(total < length) {
+    size_t nread=fread(&offset[total], 1, length-total, fp);
+    total = total+nread;
   }
-
-  /* Compute the time remaining to wait.
-     tv_nsec is certainly positive. */
-  result->tv_sec = x->tv_sec - y->tv_sec;
-  result->tv_nsec = x->tv_nsec - y->tv_nsec;
-
-  /* Return 1 if result is negative. */
-  return x->tv_sec < y->tv_sec;
+  return total == length;
 }

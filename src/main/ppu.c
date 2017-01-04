@@ -19,7 +19,7 @@ void ppu_init(struct ppu* ppu, struct screen* screen, struct memory* memory) {
 
   ppu->state = STATE_OAM;
   ppu->y = ppu->x = ppu->c = 0;
-  ppu->busy = 20;
+  ppu->busy = 80;
 
   memory_set_d8(ppu->memory, LY, ppu->y);
 }
@@ -35,19 +35,19 @@ void ppu_tick(struct ppu* ppu) {
 
         ppu->state = STATE_TRANSFER;
         ppu->x = 0;
-        ppu->c = 20;
+        ppu->busy = 1;
       } break;
     case STATE_TRANSFER:
       {
-        unsigned char color;
-
         unsigned char lcdc=memory_get_d8(ppu->memory, LCDC);
+        unsigned char sx=memory_get_d8(ppu->memory, SCX), sy=memory_get_d8(ppu->memory, SCY);
+        unsigned char palette=memory_get_d8(ppu->memory, BG_PALETTE);
+
+        unsigned char color;
         if(lcdc & LCDC_ON) {
           if(lcdc & LCDC_BG_WINDOW_DISPLAY) {
-            unsigned char sx=memory_get_d8(ppu->memory, SCX), sy=memory_get_d8(ppu->memory, SCY);
-      
             unsigned char x=sx+ppu->x, y=sy+ppu->y;
-    
+      
             unsigned short bgmapoff=lcdc & LCDC_BG_TILE_MAP_DISPLAY_SELECT ? 0x9c00 : 0x9800;
             unsigned char tx=x/8, ty=y/8;
             unsigned char ti=memory_get_d8(ppu->memory, bgmapoff+32*ty+tx);
@@ -63,7 +63,7 @@ void ppu_tick(struct ppu* ppu) {
               signed char ti2=(signed char) ti;
               tpoff = bgtsoff+0x200+ti2*16;
             }
-        
+     
             unsigned char px=x%8, py=y%8;
       
             // This is just a bizarre encoding. I don't understand this choice.
@@ -72,10 +72,7 @@ void ppu_tick(struct ppu* ppu) {
             unsigned char mx=1 << (7 - px);
             
             unsigned char c1=(b1 & mx ? 1 : 0) | (b2 & mx ? 2 : 0);
-    
-            unsigned char palette=memory_get_d8(ppu->memory, BG_PALETTE);
-    
-            unsigned char c2=(palette & (3 << (2*c1))) >> (2*c1);
+             unsigned char c2=(palette & (3 << (2*c1))) >> (2*c1);
     
             color = 255-85*c2;
           }
@@ -97,43 +94,24 @@ void ppu_tick(struct ppu* ppu) {
           memory_set_d8(ppu->memory, STAT, stat);
 
           ppu->state = STATE_HBLANK;
-          ppu->busy  = 51;
+          ppu->busy  = 204;
         }
       } break;
     case STATE_HBLANK:
       {
         ppu->y = ppu->y+1;
 
-        memory_set_d8(ppu->memory, LY, ppu->y);
-    
+        unsigned char mode;
         if(ppu->y == SCREEN_HEIGHT) {
-          unsigned char stat=memory_get_d8(ppu->memory, STAT);
-          stat = (stat & ~STAT_LYC & ~STAT_MODE) | STAT_MODE_01;
-          memory_set_d8(ppu->memory, STAT, stat);
-
           ppu->state = STATE_VBLANK;
-          ppu->busy = 1140;
+          ppu->busy  = 456;
+          mode       = STAT_MODE_01;
         }
         else {
-          unsigned char stat=memory_get_d8(ppu->memory, STAT);
-          unsigned char lyc=memory_get_d8(ppu->memory, LYC);
-          if(ppu->y == lyc) {
-            stat = stat | STAT_LYC;
-          }
-          else {
-            stat = stat & ~STAT_LYC;
-          }
-          stat = (stat & ~STAT_MODE) | STAT_MODE_10;
-          memory_set_d8(ppu->memory, STAT, stat);
-
           ppu->state = STATE_OAM;
-          ppu->c     = 0;
-          ppu->busy  = 20;
+          ppu->busy  = 80;
+          mode       = STAT_MODE_10;
         }
-      } break;
-    case STATE_VBLANK:
-      {
-        ppu->y = 0;
 
         unsigned char stat=memory_get_d8(ppu->memory, STAT);
         unsigned char lyc=memory_get_d8(ppu->memory, LYC);
@@ -143,13 +121,41 @@ void ppu_tick(struct ppu* ppu) {
         else {
           stat = stat & ~STAT_LYC;
         }
-        stat = (stat & ~STAT_MODE) | STAT_MODE_10;
+        stat = (stat & ~STAT_MODE) | mode;
         memory_set_d8(ppu->memory, STAT, stat);
 
-        screen_flip(ppu->screen);
+        memory_set_d8(ppu->memory, LY, ppu->y);
+      } break;
+    case STATE_VBLANK:
+      {
+        ppu->y = ppu->y+1;        
 
-        ppu->state = STATE_OAM;
-        ppu->busy = 20;
+        unsigned char mode;
+
+        if(ppu->y == SCREEN_HEIGHT+10) {
+          ppu->y = 0;
+          ppu->state = STATE_OAM;
+          ppu->busy = 80;
+          mode = STAT_MODE_10;
+          screen_flip(ppu->screen);
+        }
+        else {
+          ppu->state = STATE_VBLANK;
+          ppu->busy = 456;
+          mode = STAT_MODE_01;
+        }
+
+        unsigned char stat=memory_get_d8(ppu->memory, STAT);
+        unsigned char lyc=memory_get_d8(ppu->memory, LYC);
+        if(ppu->y == lyc) {
+          stat = stat | STAT_LYC;
+        }
+        else {
+          stat = stat & ~STAT_LYC;
+        }
+        stat = (stat & ~STAT_MODE) | mode;
+        memory_set_d8(ppu->memory, STAT, stat);
+
         memory_set_d8(ppu->memory, LY, ppu->y);
       } break;
     }

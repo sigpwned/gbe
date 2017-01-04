@@ -11,6 +11,8 @@
 
 #define ERR_BAD_OPCODE 1
 #define ERR_SDL 2
+#define ERR_MEMORY_HOOKS 3
+#define ERR_BAD_CARTRIDGE 4
 
 
 #ifdef __cplusplus

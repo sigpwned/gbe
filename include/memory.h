@@ -1,7 +1,21 @@
 #ifndef __MEMORY_H_INCLUDED__
 #define __MEMORY_H_INCLUDED__
 
+struct memory;
+
+typedef int (*memory_get_hook)(struct memory*, unsigned short);
+
+typedef int (*memory_set_hook)(struct memory*, unsigned short, unsigned char);
+
+#define MAX_MEMORY_HOOKS 16
+
+#define MEMORY_HOOK_RESULT ((int) 0x8000)
+
 struct memory {
+  memory_get_hook gethooks[MAX_MEMORY_HOOKS];
+  int gethookstop;
+  memory_set_hook sethooks[MAX_MEMORY_HOOKS];
+  int sethookstop;
   unsigned char mem[64*1024];
 };
 
@@ -9,6 +23,12 @@ void memory_init(struct memory* mem);
 
 unsigned char memory_get_d8(struct memory* mem, unsigned short offset);
 void memory_set_d8(struct memory* mem, unsigned short offset, unsigned char value);
+
+void memory_register_get_hook(struct memory* mem, memory_get_hook hook);
+void memory_unregister_get_hook(struct memory* mem, memory_get_hook hook);
+
+void memory_register_set_hook(struct memory* mem, memory_set_hook hook);
+void memory_unregister_set_hook(struct memory* mem, memory_set_hook hook);
 
 // LCDC ////////////////////////////////////////////////////////////////////////
 #define LCDC ((unsigned short) 0xFF40)
@@ -72,5 +92,8 @@ void memory_set_d8(struct memory* mem, unsigned short offset, unsigned char valu
 #define BG_PALETTE_01 ((unsigned char) 0x0C)
 #define BG_PALETTE_10 ((unsigned char) 0x30)
 #define BG_PALETTE_11 ((unsigned char) 0xC0)
+
+// MISCELLANEOUS ///////////////////////////////////////////////////////////////
+#define MAP_CARTRIDGE ((unsigned short) 0xFF50)
 
 #endif // __MEMORY_H_INCLUDED__
