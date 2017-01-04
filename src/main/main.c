@@ -63,14 +63,21 @@ int main(int argc, char* argv[]) {
   struct timespec then;
   gbe_gettime(&then);
 
-  // nanoseconds per tick for a 4MHz clock
-  const int ticklen=1000000000/4000000;
+  long vblanklen=1000000000/60;
 
-  int count=10000, working=1;
+  int working=1;
   while(working) {
     SDL_Event e;
 
-    if(count == 0) {
+    cpu_tick(&cpu);
+
+    ppu_tick(&ppu);
+
+    unsigned char stat=memory_get_d8(&memory, STAT);
+    if((stat&STAT_MODE)==STAT_MODE_01 && ppu.busy==1) {
+      // We're at the tail end of a vblank.
+
+      // Worship at the SDL altar
       while(SDL_PollEvent(&e)) {
         switch(e.type) {
         case SDL_QUIT:
@@ -81,32 +88,23 @@ int main(int argc, char* argv[]) {
           break;
         }
       }
-      count = 10000;
+
+      // Manage our refresh time
+      struct timespec now;
+      gbe_gettime(&now);
+
+      struct timespec elapsed;
+      timespec_subtract(&elapsed, &now, &then);
+      
+      if(elapsed.tv_nsec < vblanklen) {
+        struct timespec sleep;
+        sleep.tv_sec = 0;
+        sleep.tv_nsec = vblanklen-elapsed.tv_nsec;
+        nanosleep(&sleep, NULL);
+      }
+
+      gbe_gettime(&then);
     }
-    else {
-      count = count-1;
-    }
-
-    cpu_tick(&cpu);
-
-    ppu_tick(&ppu);
-
-    /*
-    struct timespec now;
-    gbe_gettime(&now);
-
-    struct timespec elapsed;
-    timespec_subtract(&elapsed, &now, &then);
-    if(elapsed.tv_nsec < ticklen) {
-      struct timespec sleep;
-      sleep.tv_sec = 0;
-      sleep.tv_nsec = ticklen-elapsed.tv_nsec;
-      nanosleep(&sleep, NULL);
-    }
-    // printf("ELAPSED %d %d.%d\n", ticklen, elapsed.tv_sec, elapsed.tv_nsec);
-
-    gbe_gettime(&then);
-    //*/
   }
 
   screen_destroy(&screen);
@@ -119,7 +117,7 @@ int main(int argc, char* argv[]) {
 /**
  * @see https://www.gnu.org/software/libc/manual/html_node/Elapsed-Time.html
  */
-int timespec_subtract (struct timespec *result, struct timespec *x, struct timespec *y) {
+int timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y) {
   /* Perform the carry for the later subtraction by updating y. */
   if (x->tv_nsec < y->tv_nsec) {
     int nsec = (y->tv_nsec - x->tv_nsec) / 1000000000 + 1;
