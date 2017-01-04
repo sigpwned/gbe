@@ -2226,7 +2226,7 @@ void cpu_set_r16(struct cpu* cpu, int ri, unsigned short v) {
 //// ADC ///////////////////////////////////////////////////////////////////////
 void cpu_adc_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned int t) {
   unsigned int  carries=t ^ a ^ b;
-  unsigned char z=t ? 0 : ZF;
+  unsigned char z=t&0xFF ? 0 : ZF;
   unsigned char n=0;
   unsigned char h=carries & 0x10  ? HF : 0;
   unsigned char c=carries & 0x100 ? CF : 0;
@@ -2270,7 +2270,7 @@ void cpu_adc_ind8(struct cpu* cpu) {
 //// ADD ///////////////////////////////////////////////////////////////////////
 void cpu_add8_flags(struct cpu* cpu, unsigned char a, unsigned char b, unsigned int t) {
   unsigned int  carries=t ^ a ^ b;
-  unsigned char z=t ? 0 : ZF;
+  unsigned char z=t&0xFF ? 0 : ZF;
   unsigned char n=0;
   unsigned char h=carries & 0x10  ? HF : 0;
   unsigned char c=carries & 0x100 ? CF : 0;
@@ -2307,7 +2307,7 @@ void cpu_add8_ind8(struct cpu* cpu) {
 
 void cpu_add16_flags(struct cpu* cpu, unsigned short a, unsigned short b, unsigned int t) {
   unsigned int  carries=t ^ a ^ b;
-  unsigned char z=t ? 0 : ZF;
+  unsigned char z=t&0xFFFF ? 0 : ZF;
   unsigned char n=0;
   unsigned char h=carries & 0x1000  ? HF : 0;
   unsigned char c=carries & 0x10000 ? CF : 0;
@@ -2440,7 +2440,7 @@ void cpu_cp_ind8(struct cpu* cpu) {
 void cpu_dec8_flags(struct cpu* cpu, unsigned char a, signed int t) {
   unsigned int carries=(t ^ 0x1FF) ^ a ^ ((signed char) -1);
   unsigned char f=cpu_get_r8(cpu, RF);
-  unsigned char z=t==0 ? ZF : 0;
+  unsigned char z=(t&0xFF)==0 ? ZF : 0;
   unsigned char n=NF;
   unsigned char h=carries & 0x10 ? HF : 0;
   unsigned char c=f & CF;
@@ -2488,7 +2488,7 @@ void cpu_dec16_sp(struct cpu* cpu) {
 void cpu_inc8_flags(struct cpu* cpu, unsigned char a, unsigned int t) {
   unsigned int carries=t ^ a ^ ((unsigned char) +1);
   unsigned char f=cpu_get_r8(cpu, RF);
-  unsigned char z=t==0 ? ZF : 0;
+  unsigned char z=(t&0xFF)==0 ? ZF : 0;
   unsigned char n=0;
   unsigned char h=carries & 0x10 ? HF : 0;
   unsigned char c=f & CF;
@@ -2500,6 +2500,7 @@ void cpu_inc8_r8(struct cpu* cpu, int rb) {
   unsigned int t=a+1;
   cpu_set_r8(cpu, rb, (unsigned char) t);
   cpu_inc8_flags(cpu, a, t);
+  fprintf(stderr, "INC %d : %d -> %d (%02x)\n", rb, a, t, cpu_get_r8(cpu, RF));
   cpu->busy = 4;
 }
 
@@ -2638,7 +2639,7 @@ void cpu_pop_r16(struct cpu* cpu, int ri) {
 //// SBC ///////////////////////////////////////////////////////////////////////
 void cpu_sbc_flags(struct cpu* cpu, unsigned char a, unsigned char b, signed int t) {
   unsigned int  carries=(t & 0x1FFFF) ^ a ^ b;
-  unsigned char z=t ? 0 : ZF;
+  unsigned char z=(t&0xFF) ? 0 : ZF;
   unsigned char n=NF;
   unsigned char h=carries & 0x10  ? 0 : HF;
   unsigned char c=carries & 0x100 ? 0 : CF;
@@ -2682,7 +2683,7 @@ void cpu_sbc_ind8(struct cpu* cpu) {
 //// SUB ///////////////////////////////////////////////////////////////////////
 void cpu_sub_flags(struct cpu* cpu, unsigned char a, unsigned char b, signed int t) {
   unsigned int  carries=(t & 0x1FF) ^ a ^ b;
-  unsigned char z=t ? 0 : ZF;
+  unsigned char z=t&0xFF ? 0 : ZF;
   unsigned char n=1;
   unsigned char h=carries & 0x10  ? 0 : HF;
   unsigned char c=carries & 0x100 ? 0 : CF;
