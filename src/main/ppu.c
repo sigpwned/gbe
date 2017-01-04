@@ -28,10 +28,15 @@ void ppu_tick(struct ppu* ppu) {
   if(ppu->busy <= 1) {
     switch(ppu->state) {
     case STATE_OAM:
-      ppu->state = STATE_TRANSFER;
-      ppu->x = 0;
-      ppu->c = 20;
-      break;
+      {
+        unsigned char stat=memory_get_d8(ppu->memory, STAT);
+        stat = (stat & ~STAT_MODE) | STAT_MODE_11;
+        memory_set_d8(ppu->memory, STAT, stat);
+
+        ppu->state = STATE_TRANSFER;
+        ppu->x = 0;
+        ppu->c = 20;
+      } break;
     case STATE_TRANSFER:
       {
         unsigned char color;
@@ -87,6 +92,10 @@ void ppu_tick(struct ppu* ppu) {
         ppu->x = ppu->x+1;
   
         if(ppu->x == SCREEN_WIDTH) {
+          unsigned char stat=memory_get_d8(ppu->memory, STAT);
+          stat = (stat & ~STAT_MODE) | STAT_MODE_00;
+          memory_set_d8(ppu->memory, STAT, stat);
+
           ppu->state = STATE_HBLANK;
           ppu->busy  = 51;
         }
@@ -98,6 +107,10 @@ void ppu_tick(struct ppu* ppu) {
         memory_set_d8(ppu->memory, LY, ppu->y);
     
         if(ppu->y == SCREEN_HEIGHT) {
+          unsigned char stat=memory_get_d8(ppu->memory, STAT);
+          stat = (stat & ~STAT_LYC & ~STAT_MODE) | STAT_MODE_01;
+          memory_set_d8(ppu->memory, STAT, stat);
+
           ppu->state = STATE_VBLANK;
           ppu->busy = 1140;
         }
@@ -110,6 +123,7 @@ void ppu_tick(struct ppu* ppu) {
           else {
             stat = stat & ~STAT_LYC;
           }
+          stat = (stat & ~STAT_MODE) | STAT_MODE_10;
           memory_set_d8(ppu->memory, STAT, stat);
 
           ppu->state = STATE_OAM;
@@ -119,13 +133,22 @@ void ppu_tick(struct ppu* ppu) {
       } break;
     case STATE_VBLANK:
       {
+        ppu->y = 0;
+
         unsigned char stat=memory_get_d8(ppu->memory, STAT);
-        stat = stat & ~STAT_LYC;
+        unsigned char lyc=memory_get_d8(ppu->memory, LYC);
+        if(ppu->y == lyc) {
+          stat = stat | STAT_LYC;
+        }
+        else {
+          stat = stat & ~STAT_LYC;
+        }
+        stat = (stat & ~STAT_MODE) | STAT_MODE_10;
         memory_set_d8(ppu->memory, STAT, stat);
 
         screen_flip(ppu->screen);
+
         ppu->state = STATE_OAM;
-        ppu->y = 0;
         ppu->busy = 20;
         memory_set_d8(ppu->memory, LY, ppu->y);
       } break;
