@@ -38,7 +38,7 @@ const unsigned char BOOT_ROM[] = {
   0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
 
   // TITLE (16)
-  'S', 'U', 'P', 'E', 'R', ' ', 'M', 'A', 'R', 'I', 'O', 'L', 'A', 'N', 'D', '\0'
+  'T', 'E', 'S', 'T', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'
 };
 
 int timespec_subtract(struct timespec *result, struct timespec *x, struct timespec *y);
