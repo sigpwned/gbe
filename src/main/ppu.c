@@ -92,27 +92,43 @@ void ppu_tick(struct ppu* ppu) {
         }
       } break;
     case STATE_HBLANK:
-      ppu->y = ppu->y+1;
+      {
+        ppu->y = ppu->y+1;
 
-      memory_set_d8(ppu->memory, LY, ppu->y);
+        memory_set_d8(ppu->memory, LY, ppu->y);
+    
+        if(ppu->y == SCREEN_HEIGHT) {
+          ppu->state = STATE_VBLANK;
+          ppu->busy = 1140;
+        }
+        else {
+          unsigned char stat=memory_get_d8(ppu->memory, STAT);
+          unsigned char lyc=memory_get_d8(ppu->memory, LYC);
+          if(ppu->y == lyc) {
+            stat = stat | STAT_LYC;
+          }
+          else {
+            stat = stat & ~STAT_LYC;
+          }
+          memory_set_d8(ppu->memory, STAT, stat);
 
-      if(ppu->y == SCREEN_HEIGHT) {
-        ppu->state = STATE_VBLANK;
-        ppu->busy = 1140;
-      }
-      else {
-        ppu->state = STATE_OAM;
-        ppu->c     = 0;
-        ppu->busy  = 20;
-      }
-      break;
+          ppu->state = STATE_OAM;
+          ppu->c     = 0;
+          ppu->busy  = 20;
+        }
+      } break;
     case STATE_VBLANK:
-      screen_flip(ppu->screen);
-      ppu->state = STATE_OAM;
-      ppu->y = 0;
-      ppu->busy = 20;
-      memory_set_d8(ppu->memory, LY, ppu->y);
-      break;
+      {
+        unsigned char stat=memory_get_d8(ppu->memory, STAT);
+        stat = stat & ~STAT_LYC;
+        memory_set_d8(ppu->memory, STAT, stat);
+
+        screen_flip(ppu->screen);
+        ppu->state = STATE_OAM;
+        ppu->y = 0;
+        ppu->busy = 20;
+        memory_set_d8(ppu->memory, LY, ppu->y);
+      } break;
     }
   }
   else {
