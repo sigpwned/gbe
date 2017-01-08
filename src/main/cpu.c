@@ -2500,7 +2500,6 @@ void cpu_inc8_r8(struct cpu* cpu, int rb) {
   unsigned int t=a+1;
   cpu_set_r8(cpu, rb, (unsigned char) t);
   cpu_inc8_flags(cpu, a, t);
-  fprintf(stderr, "INC %d : %d -> %d (%02x)\n", rb, a, t, cpu_get_r8(cpu, RF));
   cpu->busy = 4;
 }
 
