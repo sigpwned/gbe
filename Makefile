@@ -3,7 +3,7 @@ CXX=g++
 CFLAGS=-Iinclude/ -Wall -O2 `sdl-config --cflags` -g
 LDFLAGS=
 HEADERS=include/*.h 
-OBJECTS=cpu.o opcodes.o screen.o ppu.o mach.o memory.o
+OBJECTS=cpu.o opcodes.o screen.o ppu.o mach.o memory.o cartridge.o
 TESTS=$(OBJECTS:.o=-test.o)
 LIBRARIES=`sdl-config --libs`
 TARGET=gbe

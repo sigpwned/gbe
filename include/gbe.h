@@ -1,6 +1,7 @@
 #ifndef __GBE_H_INCLUDED__
 #define __GBE_H_INCLUDED__
 
+#include <stdio.h>
 #include <time.h>
 
 #define VMEM_WIDTH 256
@@ -24,6 +25,9 @@ void gbe_setup();
 void gbe_cleanup();
 
 void gbe_gettime(struct timespec *tp);
+
+int gbe_read_fully(FILE* fp, unsigned char* offset, size_t length);
+
 
 #ifdef __cplusplus
 }

@@ -30,6 +30,31 @@ void memory_unregister_get_hook(struct memory* mem, memory_get_hook hook);
 void memory_register_set_hook(struct memory* mem, memory_set_hook hook);
 void memory_unregister_set_hook(struct memory* mem, memory_set_hook hook);
 
+// CARTRIDGE ///////////////////////////////////////////////////////////////////
+#define CARTRIDGE_TITLE ((unsigned short) 0x134)
+#define CARTRIDGE_TITLE_LEN ((unsigned short) 15
+
+#define CARTRIDGE_TYPE                   ((unsigned short) 0x147)
+#define CARTRIDGE_TYPE_ROM               ((unsigned char) 0)
+#define CARTRIDGE_TYPE_ROM_MBC1          ((unsigned char) 1)
+#define CARTRIDGE_TYPE_ROM_MBC1_RAM      ((unsigned char) 2)
+#define CARTRIDGE_TYPE_ROM_MBC1_RAM_BATT ((unsigned char) 3)
+// TODO Add remaining constants
+
+#define CARTRIDGE_ROM_SIZE               ((unsigned short) 0x148)
+#define CARTRIDGE_ROM_SIZE_32KB          ((unsigned char) 0x00)
+#define CARTRIDGE_ROM_SIZE_64KB          ((unsigned char) 0x01)
+#define CARTRIDGE_ROM_SIZE_128KB         ((unsigned char) 0x02)
+#define CARTRIDGE_ROM_SIZE_256KB         ((unsigned char) 0x03)
+#define CARTRIDGE_ROM_SIZE_512KB         ((unsigned char) 0x04)
+// TODO Add remaining constants
+
+#define CARTRIDGE_RAM_SIZE               ((unsigned short) 0x149)
+#define CARTRIDGE_RAM_SIZE_2KB           ((unsigned char) 0x01)
+#define CARTRIDGE_RAM_SIZE_8KB           ((unsigned char) 0x02)
+#define CARTRIDGE_RAM_SIZE_32KB          ((unsigned char) 0x03)
+#define CARTRIDGE_RAM_SIZE_128KB         ((unsigned char) 0x04)
+
 // LCDC ////////////////////////////////////////////////////////////////////////
 #define LCDC ((unsigned short) 0xFF40)
 

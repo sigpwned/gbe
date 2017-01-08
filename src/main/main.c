@@ -9,6 +9,7 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "screen.h"
+#include "cartridge.h"
 
 // From GameBoy-Online emulator
 const unsigned char BOOT_ROM[] = {
@@ -34,7 +35,10 @@ void timespec_subtract(struct timespec *result, struct timespec *x, struct times
 
 int gbe_read_fully(FILE* fp, unsigned char* offset, size_t length);
 
+int gbe_read_cartridge_rom(struct memory* mem, unsigned short offset);
+
 int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
+int gbe_write_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
 
 struct memory memory;
 
@@ -44,7 +48,7 @@ struct cpu cpu;
 
 struct ppu ppu;
 
-FILE* cartridge;
+struct cartridge cartridge;
 
 int main(int argc, char* argv[]) {
   if(argc != 2) {
@@ -52,20 +56,23 @@ int main(int argc, char* argv[]) {
     exit(0);
   }
 
-  const char* cartridge_filename=argv[1];
+  const char* filename=argv[1];
 
-  cartridge = fopen(cartridge_filename, "r");
-  if(cartridge == NULL)
+  FILE* file=fopen(filename, "rb");
+  if(file == NULL)
     exit(ERR_BAD_CARTRIDGE);
+  cartridge_init(&cartridge, file);
+  fclose(file);
 
   if(SDL_Init(SDL_INIT_VIDEO) != 0)
     exit(ERR_SDL);
 
   memory_init(&memory);
-  memcpy(&memory.mem[0], BOOT_ROM, sizeof(BOOT_ROM));
-  fseek(cartridge, 256, SEEK_SET);
-  gbe_read_fully(cartridge, &memory.mem[256], 32768-256);
+  memcpy(&memory.mem[  0],              BOOT_ROM,        256);
+  memcpy(&memory.mem[256], &cartridge.data[256], 0x4000-256);
+  memory_register_get_hook(&memory, gbe_read_cartridge_rom);
   memory_register_set_hook(&memory, gbe_map_cartridge_rom);
+  memory_register_set_hook(&memory, gbe_write_cartridge_rom);
 
   screen_init(&screen, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -129,15 +136,41 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
+int gbe_read_cartridge_rom(struct memory* mem, unsigned short offset) {
+  int result;
+
+  if(offset>=0x4000 && offset<0x8000) {
+    result = MEMORY_HOOK_RESULT | cartridge_get_d8(&cartridge, offset);
+  }
+  else {
+    result = 0;
+  }
+
+  return result;
+}
+
 int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8) {
   int result;
 
   if(offset == MAP_CARTRIDGE) {
     // This write means to swap out the cartridge ROM!
-    fseek(cartridge, 0, SEEK_SET);
-    gbe_read_fully(cartridge, &mem->mem[0], 256);
-    fclose(cartridge);
+    memcpy(&mem->mem[0], &cartridge.data[0], 256);
     memory_unregister_set_hook(mem, gbe_map_cartridge_rom);
+    result = MEMORY_HOOK_RESULT;
+  }
+  else {
+    result = 0;
+  }
+
+  return result;
+}
+
+int gbe_write_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8) {
+  int result;
+
+  if(offset>=0x2000 && offset<0x4000) {
+    // This write goes to the cartridge
+    cartridge_set_d8(&cartridge, offset, d8);
     result = MEMORY_HOOK_RESULT;
   }
   else {
