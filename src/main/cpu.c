@@ -365,8 +365,37 @@ void cpu_tick(struct cpu* cpu) {
       break;
   
     case DAA:
-      // wat
-      break;
+      {
+        unsigned int a=cpu_get_r8(cpu, RA);
+        unsigned char f=cpu_get_r8(cpu, RF);
+
+        if(f & NF) {
+          if(f & HF)
+            a = (a-6) & 0xFF;
+          if(f & CF)
+            a = a-0x60;
+        }
+        else {
+          if(f&HF || (a&0xF)>9)
+            a = a+0x06;
+          if(f&CF || a>0x9f)
+            a = a+0x60;
+        }
+
+        f = f & ~HF;
+
+        if(a & 0x100)
+          f = f | CF;
+
+        a = a & 0xFF;
+        if(a)
+          f = f & ~ZF;
+        else
+          f = f | ZF;
+
+        cpu_set_r8(cpu, RA, (unsigned char) a);
+        cpu_set_r8(cpu, RF, f);
+      } break;
   
     case DEC_A:
       cpu_dec8_r8(cpu, RA);
@@ -657,8 +686,7 @@ void cpu_tick(struct cpu* cpu) {
         unsigned short hl=cpu_get_r16(cpu, RHL);
         unsigned char a=memory_get_d8(cpu->memory, hl);
         cpu_set_r8(cpu, RA, a);
-        hl = hl+1;
-        cpu_set_r16(cpu, RHL, hl);
+        cpu_set_r16(cpu, RHL, hl+1);
         cpu->busy = 8;
       } break;
   
@@ -996,8 +1024,12 @@ void cpu_tick(struct cpu* cpu) {
   
     // POP ///////////////////////////////////////////////////////////////////////
     case POP_AF:
-      cpu_pop_r16(cpu, RAF);
-      break;
+      {
+        cpu_pop_r16(cpu, RAF);
+        unsigned char f=cpu_get_r8(cpu, RF);
+        f = f & 0xF0;
+        cpu_set_r8(cpu, RF, f);
+      } break;
     case POP_BC:
       cpu_pop_r16(cpu, RBC);
       break;
