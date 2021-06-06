@@ -35,6 +35,7 @@ void timespec_subtract(struct timespec *result, struct timespec *x, struct times
 
 int gbe_read_fully(FILE* fp, unsigned char* offset, size_t length);
 
+int gbe_read_buttons_rom(struct memory* mem, unsigned short offset);
 int gbe_read_cartridge_rom(struct memory* mem, unsigned short offset);
 
 int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
@@ -70,6 +71,7 @@ int main(int argc, char* argv[]) {
   memory_init(&memory);
   memcpy(&memory.mem[  0],              BOOT_ROM,        256);
   memcpy(&memory.mem[256], &cartridge.data[256], 0x4000-256);
+  memory_register_get_hook(&memory, gbe_read_buttons_rom);
   memory_register_get_hook(&memory, gbe_read_cartridge_rom);
   memory_register_set_hook(&memory, gbe_map_cartridge_rom);
   memory_register_set_hook(&memory, gbe_write_cartridge_rom);
@@ -134,6 +136,30 @@ int main(int argc, char* argv[]) {
   SDL_Quit();
 
   return 0;
+}
+
+int gbe_read_buttons_rom(struct memory* mem, unsigned short offset) {
+  int result;
+
+  if(offset == 0xFF00) {
+    // SEE: https://gbdev.gg8.se/wiki/articles/Joypad_Input
+    // FF00 - P1/JOYP - Joypad (R/W)
+    // The eight gameboy buttons/direction keys are arranged in form of a 2x4 matrix. Select either button or direction keys by writing to this register, then read-out bit 0-3.
+    // Bit 7 - Not used
+    // Bit 6 - Not used
+    // Bit 5 - P15 Select Button Keys      (0=Select)
+    // Bit 4 - P14 Select Direction Keys   (0=Select)
+    // Bit 3 - P13 Input Down  or Start    (0=Pressed) (Read Only)
+    // Bit 2 - P12 Input Up    or Select   (0=Pressed) (Read Only)
+    // Bit 1 - P11 Input Left  or Button B (0=Pressed) (Read Only)
+    // Bit 0 - P10 Input Right or Button A (0=Pressed) (Read Only)
+    result = MEMORY_HOOK_RESULT | 0xFF;
+  }
+  else {
+    result = 0;
+  }
+
+  return result;
 }
 
 int gbe_read_cartridge_rom(struct memory* mem, unsigned short offset) {

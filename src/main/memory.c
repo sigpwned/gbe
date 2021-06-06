@@ -10,7 +10,7 @@ void memory_init(struct memory* mem) {
 
 unsigned char memory_get_d8(struct memory* mem, unsigned short offset) {
   int result=0;
-  if(offset >= 0x8000) {
+  if(offset >= 0x0100) {
     for(int i=0;i<mem->gethookstop;i++) {
       result = mem->gethooks[i](mem, offset);
       if(result != 0)
