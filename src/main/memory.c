@@ -78,3 +78,21 @@ void memory_unregister_set_hook(struct memory* mem, memory_set_hook hook) {
     }
   }
 }
+
+unsigned char memory_get_interrupt_flag(struct memory* mem) {
+  return memory_get_d8(mem, IF);
+}
+
+void memory_set_interrupt_flag(struct memory* mem, unsigned char mask) {
+  unsigned char iflag=memory_get_interrupt_flag(mem);
+  memory_set_d8(mem, IF, iflag | INTERRUPT_MASK_VBLANK);
+}
+
+void memory_clear_interrupt_flag(struct memory* mem, unsigned char mask) {
+  unsigned char iflag=memory_get_interrupt_flag(mem);
+  memory_set_d8(mem, IF, iflag & ~INTERRUPT_MASK_VBLANK);
+}
+
+unsigned char memory_get_interrupt_enabled(struct memory* mem) {
+  return memory_get_d8(mem, IE);
+}

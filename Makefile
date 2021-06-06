@@ -1,6 +1,6 @@
 CC=gcc
 CXX=g++
-CFLAGS=-Iinclude/ -Wall -O2 `sdl-config --cflags` -g
+CFLAGS=-DGBE_DEBUG -Iinclude/ -Wall -O2 `sdl-config --cflags` -g
 LDFLAGS=
 HEADERS=include/*.h 
 OBJECTS=cpu.o opcodes.o screen.o ppu.o mach.o memory.o cartridge.o

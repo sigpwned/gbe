@@ -265,10 +265,7 @@ void cpu_tick(struct cpu* cpu) {
         unsigned char fh=memory_get_d8(cpu->memory, cpu->regs.pc++);
         unsigned short fp=UCS_TO_US(fh, fl);
 
-        unsigned char pcl=US_TO_LUC(cpu->regs.pc);
-        unsigned char pch=US_TO_HUC(cpu->regs.pc);
-        memory_set_d8(cpu->memory, --cpu->regs.sp, pch);
-        memory_set_d8(cpu->memory, --cpu->regs.sp, pcl);
+        cpu_push_pc(cpu);
 
         cpu->regs.pc = fp;
 
@@ -2216,6 +2213,8 @@ void cpu_set_hl(struct cpu* cpu, unsigned short hl) {
   cpu_set_l(cpu, l);
 }
 
+// CONTROL REGISTERS ///////////////////////////////////////////////////////////
+
 unsigned short cpu_get_sp(struct cpu* cpu) {
   return cpu->regs.sp;
 }
@@ -2230,6 +2229,24 @@ unsigned short cpu_get_pc(struct cpu* cpu) {
 
 void cpu_set_pc(struct cpu* cpu, unsigned short pc) {
   cpu->regs.pc = pc;
+}
+
+unsigned char cpu_get_ime(struct cpu* cpu) {
+  return cpu->ime;
+}
+
+void cpu_set_ime(struct cpu* cpu, unsigned char ime) {
+  cpu->ime = ime;
+}
+
+// SPECIAL OPERATIONS //////////////////////////////////////////////////////////
+
+void cpu_push_pc(struct cpu* cpu) {
+  unsigned char pcl=US_TO_LUC(cpu->regs.pc);
+  unsigned char pch=US_TO_HUC(cpu->regs.pc);
+
+  memory_set_d8(cpu->memory, --cpu->regs.sp, pch);
+  memory_set_d8(cpu->memory, --cpu->regs.sp, pcl);
 }
 
 // REGISTERS ///////////////////////////////////////////////////////////////////
@@ -2422,11 +2439,7 @@ void cpu_and_ind8(struct cpu* cpu) {
 void cpu_call_cond(struct cpu* cpu, unsigned short p, unsigned char mask, unsigned char test) {
   unsigned char f=cpu_get_r8(cpu, RF);
   if((f & mask) == test) {
-    unsigned char pcl=US_TO_LUC(cpu->regs.pc);
-    unsigned char pch=US_TO_HUC(cpu->regs.pc);
-
-    memory_set_d8(cpu->memory, --cpu->regs.sp, pch);
-    memory_set_d8(cpu->memory, --cpu->regs.sp, pcl);
+    cpu_push_pc(cpu);
 
     cpu->regs.pc = p;
 

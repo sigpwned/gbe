@@ -30,6 +30,12 @@ void memory_unregister_get_hook(struct memory* mem, memory_get_hook hook);
 void memory_register_set_hook(struct memory* mem, memory_set_hook hook);
 void memory_unregister_set_hook(struct memory* mem, memory_set_hook hook);
 
+unsigned char memory_get_interrupt_flag(struct memory* mem);
+void memory_set_interrupt_flag(struct memory* mem, unsigned char mask);
+void memory_clear_interrupt_flag(struct memory* mem, unsigned char mask);
+
+unsigned char memory_get_interrupt_enabled(struct memory* mem);
+
 // CARTRIDGE ///////////////////////////////////////////////////////////////////
 #define CARTRIDGE_TITLE ((unsigned short) 0x134)
 #define CARTRIDGE_TITLE_LEN ((unsigned short) 15
@@ -110,6 +116,21 @@ void memory_unregister_set_hook(struct memory* mem, memory_set_hook hook);
 #define SCX ((unsigned short) 0xFF43)
 #define LY ((unsigned short) 0xFF44)
 #define LYC ((unsigned short) 0xFF45)
+
+// OTHER CONTROL REGS //////////////////////////////////////////////////////////
+
+#define INTERRUPT_MASK_VBLANK ((unsigned char) 0x01)
+#define INTERRUPT_MASK_LCDC ((unsigned char) 0x02)
+#define INTERRUPT_MASK_TIMER ((unsigned char) 0x04)
+#define INTERRUPT_MASK_SERIAL ((unsigned char) 0x08)
+#define INTERRUPT_MASK_JOYPAD ((unsigned char) 0x10)
+
+#define IF ((unsigned short) 0xFF0F)
+#define IE ((unsigned short) 0xFFFF)
+
+// INTERRUPTS //////////////////////////////////////////////////////////////////
+
+#define INTERRUPT_VBLANK_ROUTINE_ADDR ((unsigned short) 0x0040)
 
 // PALETTE /////////////////////////////////////////////////////////////////////
 #define BG_PALETTE ((unsigned short) 0xFF47)

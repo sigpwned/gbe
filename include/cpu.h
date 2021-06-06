@@ -65,11 +65,20 @@ void cpu_set_de(struct cpu* p, unsigned short de);
 unsigned short cpu_get_hl(struct cpu* p);
 void cpu_set_hl(struct cpu* p, unsigned short hl);
 
+// CONTROL REGISTERS ///////////////////////////////////////////////////////////
+  
 unsigned short cpu_get_sp(struct cpu* p);
 void cpu_set_sp(struct cpu* p, unsigned short sp);
 
 unsigned short cpu_get_pc(struct cpu* p);
 void cpu_set_pc(struct cpu* p, unsigned short pc);
+
+unsigned char cpu_get_ime(struct cpu* p);
+void cpu_set_ime(struct cpu* p, unsigned char ime);
+
+// SPECIAL OPERATIONS //////////////////////////////////////////////////////////
+
+void cpu_push_pc(struct cpu* p);
 
 #ifdef __cplusplus 
 }

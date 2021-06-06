@@ -39,7 +39,23 @@ int gbe_read_buttons_rom(struct memory* mem, unsigned short offset);
 int gbe_read_cartridge_rom(struct memory* mem, unsigned short offset);
 
 int gbe_map_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
+
+int gbe_write_buttons_rom(struct memory* mem, unsigned short offset, unsigned char d8);
 int gbe_write_cartridge_rom(struct memory* mem, unsigned short offset, unsigned char d8);
+
+struct buttons {
+  int choose_buttons;
+  int choose_directions;
+  
+  int up;
+  int down;
+  int left;
+  int right;
+  int b;
+  int a;
+  int select;
+  int start;
+};
 
 struct memory memory;
 
@@ -50,6 +66,8 @@ struct cpu cpu;
 struct ppu ppu;
 
 struct cartridge cartridge;
+
+struct buttons buttons;
 
 int main(int argc, char* argv[]) {
   if(argc != 2) {
@@ -75,6 +93,11 @@ int main(int argc, char* argv[]) {
   memory_register_get_hook(&memory, gbe_read_cartridge_rom);
   memory_register_set_hook(&memory, gbe_map_cartridge_rom);
   memory_register_set_hook(&memory, gbe_write_cartridge_rom);
+  memory_register_set_hook(&memory, gbe_write_buttons_rom);
+
+  memset(&buttons, 0, sizeof(buttons));
+  buttons.choose_directions = 1;
+  buttons.choose_buttons = 1;
 
   screen_init(&screen, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -91,27 +114,156 @@ int main(int argc, char* argv[]) {
   while(working) {
     SDL_Event e;
 
+    // Handle interrupts
+    if(cpu_get_ime(&cpu)) {
+      // Master interrupt is enabled
+      unsigned char ienabled=memory_get_interrupt_enabled(&memory);
+      unsigned char iflag=memory_get_interrupt_flag(&memory);
+      if((ienabled  & INTERRUPT_MASK_VBLANK)!=0
+          && (iflag & INTERRUPT_MASK_VBLANK)!=0) {
+#ifdef GBE_DEBUG
+        fprintf(stderr, "VBLANK\n");
+#endif
+        memory_clear_interrupt_flag(&memory, INTERRUPT_MASK_VBLANK);
+        cpu_set_ime(&cpu, 0);
+        cpu_push_pc(&cpu);
+        cpu_set_pc(&cpu, INTERRUPT_VBLANK_ROUTINE_ADDR);
+      }
+      else {
+        // No interrupts
+      }
+    }
+
     cpu_tick(&cpu);
 
     ppu_tick(&ppu);
-
     
+    int vblank;
     // unsigned char stat=memory_get_d8(&memory, STAT);
     // if((stat&STAT_MODE)==STAT_MODE_01 && ppu.busy==1) {
     if(ppu.y==153 && ppu.busy==1) {
-      // We're at the tail end of a vblank.
-
       // Worship at the SDL altar
       while(SDL_PollEvent(&e)) {
         switch(e.type) {
         case SDL_QUIT:
           working = 0;
           break;
+        case SDL_KEYDOWN:
+          switch(e.key.keysym.sym) {
+          case SDLK_w:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN UP\n");
+#endif            
+            buttons.up = 1;
+            break;
+          case SDLK_a:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN LEFT\n");
+#endif            
+            buttons.left = 1;
+            break;
+          case SDLK_s:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN DOWN\n");
+#endif            
+            buttons.down = 1;
+            break;
+          case SDLK_d:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN RIGHT\n");
+#endif            
+            buttons.right = 1;
+            break;
+          case SDLK_j:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN A\n");
+#endif            
+            buttons.a = 1;
+            break;
+          case SDLK_k:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN B\n");
+#endif            
+            buttons.b = 1;
+            break;
+          case SDLK_g:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN SELECT\n");
+#endif            
+            buttons.select = 1;
+            break;
+          case SDLK_h:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYDOWN START\n");
+#endif            
+            buttons.start = 1;
+            break;
+          default:
+            break;
+          }
+          break;
+        case SDL_KEYUP:
+          switch(e.key.keysym.sym) {
+          case SDLK_w:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   UP\n");
+#endif            
+            buttons.up = 0;
+            break;
+          case SDLK_a:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   LEFT\n");
+#endif            
+            buttons.left = 0;
+            break;
+          case SDLK_s:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   DOWN\n");
+#endif            
+            buttons.down = 0;
+            break;
+          case SDLK_d:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   RIGHT\n");
+#endif            
+            buttons.right = 0;
+            break;
+          case SDLK_j:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   A\n");
+#endif            
+            buttons.a = 0;
+            break;
+          case SDLK_k:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   B\n");
+#endif            
+            buttons.b = 0;
+            break;
+          case SDLK_g:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   SELECT\n");
+#endif            
+            buttons.select = 0;
+            break;
+          case SDLK_h:
+#ifdef GBE_DEBUG
+            fprintf(stderr, "KEYUP   START\n");
+#endif            
+            buttons.start = 0;
+            break;
+          default:
+            break;
+          }
+          break;
         default:
           // Ignore this for now
           break;
         }
       }
+
+      // Set our interrupt flag
+      memory_set_interrupt_flag(&memory, INTERRUPT_MASK_VBLANK);
 
       // Manage our refresh time
       struct timespec now;
@@ -138,22 +290,89 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
+// @see https://gbdev.gg8.se/wiki/articles/Joypad_Input
+// FF00 - P1/JOYP - Joypad (R/W)
+// The eight gameboy buttons/direction keys are arranged in form of a 2x4 matrix. Select either button or direction keys by writing to this register, then read-out bit 0-3.
+// Bit 7 - Not used
+// Bit 6 - Not used
+// Bit 5 - P15 Select Button Keys      (0=Select)
+// Bit 4 - P14 Select Direction Keys   (0=Select)
+// Bit 3 - P13 Input Down  or Start    (0=Pressed) (Read Only)
+// Bit 2 - P12 Input Up    or Select   (0=Pressed) (Read Only)
+// Bit 1 - P11 Input Left  or Button B (0=Pressed) (Read Only)
+// Bit 0 - P10 Input Right or Button A (0=Pressed) (Read Only)
+
+#define BUTTONS_MEMORY_REGISTER 0xFF00
+#define BUTTONS_CHOOSE_DIRECTIONS 0x10
+#define BUTTONS_CHOOSE_BUTTONS 0x20
+#define BUTTONS_NONE 0x0F
+
+#define BUTTONS_DOWN 0x08
+#define BUTTONS_UP 0x04
+#define BUTTONS_LEFT 0x02
+#define BUTTONS_RIGHT 0x01
+
+#define BUTTONS_START 0x08
+#define BUTTONS_SELECT 0x04
+#define BUTTONS_B 0x02
+#define BUTTONS_A 0x01
+
 int gbe_read_buttons_rom(struct memory* mem, unsigned short offset) {
   int result;
 
-  if(offset == 0xFF00) {
-    // SEE: https://gbdev.gg8.se/wiki/articles/Joypad_Input
-    // FF00 - P1/JOYP - Joypad (R/W)
-    // The eight gameboy buttons/direction keys are arranged in form of a 2x4 matrix. Select either button or direction keys by writing to this register, then read-out bit 0-3.
-    // Bit 7 - Not used
-    // Bit 6 - Not used
-    // Bit 5 - P15 Select Button Keys      (0=Select)
-    // Bit 4 - P14 Select Direction Keys   (0=Select)
-    // Bit 3 - P13 Input Down  or Start    (0=Pressed) (Read Only)
-    // Bit 2 - P12 Input Up    or Select   (0=Pressed) (Read Only)
-    // Bit 1 - P11 Input Left  or Button B (0=Pressed) (Read Only)
-    // Bit 0 - P10 Input Right or Button A (0=Pressed) (Read Only)
-    result = MEMORY_HOOK_RESULT | 0xFF;
+  if(offset == BUTTONS_MEMORY_REGISTER) {
+    int dirs=BUTTONS_NONE;
+    if(buttons.choose_directions) {
+#ifdef GBE_DEBUG
+      fprintf(stderr, "KEYSTATE DIRECTIONS\n");
+#endif            
+      dirs = 
+          (buttons.right ? 0 : BUTTONS_RIGHT)
+        | (buttons.left ? 0 : BUTTONS_LEFT)
+        | (buttons.up ? 0 : BUTTONS_UP)
+        | (buttons.down ? 0 : BUTTONS_DOWN);
+    }
+
+    int buts=BUTTONS_NONE;
+    if(buttons.choose_buttons) {
+#ifdef GBE_DEBUG
+      fprintf(stderr, "KEYSTATE BUTTONS\n");
+#endif            
+      buts = 
+          (buttons.a ? 0 : BUTTONS_A)
+        | (buttons.b ? 0 : BUTTONS_B)
+        | (buttons.select ? 0 : BUTTONS_SELECT)
+        | (buttons.start ? 0 : BUTTONS_START);
+    }
+    
+    result = MEMORY_HOOK_RESULT | (dirs & buts);
+    if(!buttons.choose_directions)
+      result = result | BUTTONS_CHOOSE_DIRECTIONS;
+    if(!buttons.choose_buttons)
+      result = result | BUTTONS_CHOOSE_BUTTONS;
+
+#ifdef GBE_DEBUG
+    fprintf(stderr, "KEYSTATE %04x\n", result);
+#endif
+
+  }
+  else {
+    result = 0;
+  }
+
+  return result;
+}
+
+int gbe_write_buttons_rom(struct memory* mem, unsigned short offset, unsigned char d8) {
+  int result;
+
+  if(offset == BUTTONS_MEMORY_REGISTER) {
+    buttons.choose_directions = (d8 & BUTTONS_CHOOSE_DIRECTIONS) ? 0 : 1;
+    buttons.choose_buttons    = (d8 & BUTTONS_CHOOSE_BUTTONS) ? 0 : 1;
+#ifdef GBE_DEBUG
+    fprintf(stderr, "KEYSETUP %04x %d %d\n", d8, buttons.choose_directions, buttons.choose_buttons);
+#endif            
+    result = MEMORY_HOOK_RESULT;
   }
   else {
     result = 0;
